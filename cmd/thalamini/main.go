@@ -14,24 +14,24 @@ const (
 	DEFAULT_WORKER_COUNT = 20
 )
 
-// Hub manages concurrent message processing with a buffered channel and worker pool
-type Hub struct {
+// HubQueue manages concurrent message processing with a buffered channel and worker pool
+type HubQueue struct {
 	messageQueue chan []byte    // Channel for queuing messages to be processed
 	waitGroup    sync.WaitGroup // WaitGroup for synchronizing worker goroutines
 	workerCount  int            // Number of workers to spawn
 }
 
 // New creates and returns a new Hub instance with initialized message queue
-func New() *Hub {
+func New() *HubQueue {
 	return NewWithWorkers(DEFAULT_WORKER_COUNT)
 }
 
 // NewWithWorkers creates a new Hub with a specified number of workers
-func NewWithWorkers(workers int) *Hub {
+func NewWithWorkers(workers int) *HubQueue {
 	if workers <= 0 {
 		workers = DEFAULT_WORKER_COUNT
 	}
-	return &Hub{
+	return &HubQueue{
 		messageQueue: make(chan []byte, QUEUE_SIZE),
 		workerCount:  workers,
 	}
@@ -39,7 +39,7 @@ func NewWithWorkers(workers int) *Hub {
 
 // Run starts the worker pool with workerCount workers
 // Each worker processes messages from the message queue independently
-func (h *Hub) Run() {
+func (h *HubQueue) Run() {
 	for i := 0; i < h.workerCount; i++ {
 		h.waitGroup.Add(1)
 		go func() {
@@ -51,14 +51,14 @@ func (h *Hub) Run() {
 
 // Stop gracefully shuts down the hub by closing the message queue
 // and waiting for all workers to complete their processing
-func (h *Hub) Stop() {
+func (h *HubQueue) Stop() {
 	close(h.messageQueue)
 	h.waitGroup.Wait()
 }
 
 // Store queues a message for processing by the worker pool
 // The message is sent to the message queue channel
-func (h *Hub) Store(message []byte) {
+func (h *HubQueue) Store(message []byte) {
 	h.messageQueue <- message
 }
 
