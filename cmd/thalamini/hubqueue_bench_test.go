@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-)
+)	
 
 func BenchmarkHub_Store(b *testing.B) {
-	hub := New()
+	hub := NewHub()
 	message := []byte("benchmark message")
 
 	hub.Run()
@@ -15,12 +15,12 @@ func BenchmarkHub_Store(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		hub.Store(message)
+		hub.Store(HubMessage{Data: message})
 	}
 }
 
 func BenchmarkHub_ParallelStore(b *testing.B) {
-	hub := New()
+	hub := NewHub()
 	message := []byte("benchmark message")
 
 	hub.Run()
@@ -29,7 +29,7 @@ func BenchmarkHub_ParallelStore(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			hub.Store(message)
+			hub.Store(HubMessage{Data: message})
 		}
 	})
 }
@@ -39,7 +39,7 @@ func BenchmarkHub_StoreWithDifferentSizes(b *testing.B) {
 
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("message_size_%d", size), func(b *testing.B) {
-			hub := New()
+			hub := NewHub()
 			message := make([]byte, size)
 
 			for i := range message {
@@ -51,7 +51,7 @@ func BenchmarkHub_StoreWithDifferentSizes(b *testing.B) {
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				hub.Store(message)
+				hub.Store(HubMessage{Data: message})
 			}
 		})
 	}
@@ -76,7 +76,7 @@ func BenchmarkHub_ConcurrentWorkers(b *testing.B) {
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						hub.Store(message)
+						hub.Store(HubMessage{Data: message})
 					}()
 				}
 

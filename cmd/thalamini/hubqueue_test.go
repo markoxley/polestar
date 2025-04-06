@@ -7,7 +7,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	hub := New()
+	hub := NewHub()
 	if hub == nil {
 		t.Error("Expected non-nil Hub instance")
 	}
@@ -44,22 +44,22 @@ func TestNewWithWorkers(t *testing.T) {
 }
 
 func TestHub_Store(t *testing.T) {
-	hub := New()
+	hub := NewHub()
 	message := []byte("test message")
 
 	// Start a goroutine to read from the queue
 	done := make(chan bool)
 	go func() {
 		msg := <-hub.messageQueue
-		if string(msg) != string(message) {
-			t.Errorf("Expected message %s, got %s", string(message), string(msg))
+		if string(msg.Data) != string(message) {
+			t.Errorf("Expected message %s, got %s", string(message), string(msg.Data))
 		}
 		done <- true
 	}()
 
 	// Store the message
-	hub.Store(message)
-	
+	hub.Store(HubMessage{Data: message})
+
 	// Wait for the message to be received
 	select {
 	case <-done:
@@ -70,7 +70,7 @@ func TestHub_Store(t *testing.T) {
 }
 
 func TestHub_RunAndStop(t *testing.T) {
-	hub := New()
+	hub := NewHub()
 	messages := [][]byte{
 		[]byte("message 1"),
 		[]byte("message 2"),
@@ -82,7 +82,7 @@ func TestHub_RunAndStop(t *testing.T) {
 
 	// Send test messages
 	for _, msg := range messages {
-		hub.Store(msg)
+		hub.Store(HubMessage{Data: msg})
 	}
 
 	// Stop the hub
@@ -109,7 +109,7 @@ func TestHub_RunAndStop(t *testing.T) {
 }
 
 func TestConcurrentAccess(t *testing.T) {
-	hub := New()
+	hub := NewHub()
 	messageCount := 100
 	var wg sync.WaitGroup
 
@@ -120,7 +120,7 @@ func TestConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			hub.Store([]byte("message"))
+			hub.Store(HubMessage{Data: []byte("message")})
 		}(i)
 	}
 
