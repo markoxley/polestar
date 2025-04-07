@@ -37,37 +37,55 @@ var (
 )
 
 // MessageData represents a key-value store for message payload data
+// It supports various data types including strings, integers, floats, and booleans.
 type MessageData map[string]interface{}
 
 // Message represents a communication packet in the hub system
+// It contains metadata about the message type and topic, as well as the actual payload data.
 type Message struct {
-	MsgType     byte     // Type of the message (registration or data)
-	Source      string   // Source identifier of the message
-	Destination []string // List of destination identifiers
-	data        []byte   // Raw message payload data
+	MsgType byte // Type of the message (registration or data)
+	//Source      string   // Source identifier of the message
+	//Destination []string // List of destination identifiers
+	Topic string
+	data  []byte // Raw message payload data
 }
 
-// NewMessage creates a new data message with the specified source
-func NewMessage(source string) *Message {
+// NewMessage creates a new data message with the specified topic
+// This method initializes a new Message with the data message type.
+// Example:
+//   msg := NewMessage("weather")
+func NewMessage(topic string) *Message {
 	return &Message{
-		Source:  source,
+		Topic:   topic,
 		MsgType: DataMsgByte,
 	}
 }
 
 // NewRegistrationMessage creates a new registration message for a service
 // with the specified source and port number
-func NewRegistrationMessage(source string, port uint16) *Message {
+// This method initializes a new Message with the registration message type
+// and includes the service's port and topics in the message data.
+// Example:
+//   msg := NewRegistrationMessage(8080, "weather-service", "weather", "forecast")
+func NewRegistrationMessage(port uint16, name string, topics ...string) *Message {
+	data := append([]string{name}, topics...)
 	return &Message{
-		Source:      source,
-		Destination: []string{"Hub"},
-		MsgType:     RegMsgByte,
-		data:        []byte{byte(port), byte(port >> 8)},
+		Topic:   "subscription",
+		MsgType: RegMsgByte,
+		data:    append([]byte{byte(port), byte(port >> 8)}, []byte(strings.Join(data, ","))...),
 	}
 }
 
-// SetData sets the message data from a MessageData map
-// Returns an error if any of the data types are not supported
+// SetData sets the message's payload data using a MessageData structure
+// It converts the data into a binary format for transmission.
+// Returns an error if the data contains unsupported types.
+// Example:
+//   data := MessageData{
+//     "temperature": 25.5,
+//     "humidity":   60,
+//     "location":   "London",
+//   }
+//   err := msg.SetData(data)
 func (m *Message) SetData(data MessageData) error {
 	buffer := bytes.NewBuffer(nil)
 	for k, v := range data {
@@ -102,6 +120,8 @@ func (m *Message) SetData(data MessageData) error {
 
 // Data deserializes the message's internal data format into a MessageData structure
 // Returns an error if the data format is invalid or contains unsupported types
+// Example:
+//   data, err := msg.Data()
 func (m *Message) Data() (MessageData, error) {
 	md := make(MessageData)
 	buffer := make([]byte, 0, len(m.data))
@@ -145,22 +165,26 @@ func (m *Message) Data() (MessageData, error) {
 	return md, nil
 }
 
+// Raw returns the raw binary data of the message
+// This method is used internally by the hub for message transmission.
+// Example:
+//   rawData := msg.Raw()
+func (m *Message) Raw() []byte {
+	return m.data
+}
+
 // Serialize converts the Message into a byte slice according to the protocol
 // The format is: [start bytes (2)] [length (2)] [source] [end part] [destinations] [end part] [type (1)] [data] [end part] [checksum (1)] [end bytes (2)]
+// This method is used internally by the hub for message transmission.
+// Example:
+//   serialized := msg.Serialize()
 func (m *Message) Serialize() []byte {
 	// Calculate size of message parts
-	sourceLen := len(m.Source)
-	destLen := 0
-	for _, d := range m.Destination {
-		if destLen > 0 {
-			destLen++ // For comma
-		}
-		destLen += len(d)
-	}
+	topicLen := len(m.Topic)
 	dataLen := len(m.data)
 
 	// Total size = start(2) + length(2) + source + endPart(1) + destinations + endPart(1) + type(1) + data + endPart(1) + checksum(1) + end(2)
-	totalLen := 2 + 2 + sourceLen + 1 + destLen + 1 + 1 + dataLen + 1 + 1 + 2
+	totalLen := 2 + 2 + topicLen + 1 + 1 + dataLen + 1 + 1 + 2
 
 	// Create buffer with capacity
 	buffer := make([]byte, 0, totalLen)
@@ -172,12 +196,8 @@ func (m *Message) Serialize() []byte {
 	buffer = append(buffer, byte(totalLen))
 	buffer = append(buffer, byte(totalLen>>8))
 
-	// Source
-	buffer = append(buffer, []byte(m.Source)...)
-	buffer = append(buffer, endPartByte)
-
-	// Destinations
-	buffer = append(buffer, []byte(strings.Join(m.Destination, ","))...)
+	// Topic
+	buffer = append(buffer, []byte(m.Topic)...)
 	buffer = append(buffer, endPartByte)
 
 	// Type and data
@@ -196,9 +216,12 @@ func (m *Message) Serialize() []byte {
 
 // Deserialize parses a byte slice into the Message structure
 // Returns an error if the message format is invalid or checksum verification fails
+// This method is used internally by the hub for message reception.
+// Example:
+//   err := msg.Deserialize(serialized)
 func (m *Message) Deserialize(data []byte) error {
 	l := len(data)
-	if l < 11 {
+	if l < 10 {
 		return errors.New("invalid message length")
 	}
 	if data[0] != startBytes[0] || data[1] != startBytes[1] {
@@ -227,17 +250,16 @@ func (m *Message) Deserialize(data []byte) error {
 		}
 	}
 
-	if len(parts) != 3 {
+	if len(parts) != 2 {
 		return errors.New("invalid message structure")
 	}
 
-	m.Source = string(parts[0])
-	m.Destination = strings.Split(string(parts[1]), ",")
-	if len(parts[2]) < 1 {
+	m.Topic = string(parts[0])
+	if len(parts[1]) < 1 {
 		return errors.New("invalid message structure")
 	}
-	m.MsgType = parts[2][0]
-	m.data = parts[2][1:]
+	m.MsgType = parts[1][0]
+	m.data = parts[1][1:]
 
 	return nil
 }

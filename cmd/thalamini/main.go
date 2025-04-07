@@ -9,6 +9,9 @@ import (
 	"log"
 	"net"
 	"time"
+
+	"github.com/markoxley/dani/config"
+	"github.com/markoxley/dani/hub"
 )
 
 const (
@@ -22,22 +25,30 @@ const (
 
 // main initializes and runs the Thalamini hub server.
 // It sets up a TCP listener and handles incoming connections in separate goroutines.
+// The server runs indefinitely until interrupted.
+// Example configuration:
+//
+//	{
+//	  "ip": "0.0.0.0",
+//	  "port": 8080
+//	}
 func main() {
-	config := MustLoadConfig()
-	hub := NewHub()
+	config := config.MustLoad()
+	hb := hub.New()
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", config.IP, config.Port))
 	if err != nil {
 		panic(err)
 	}
 	defer l.Close()
 
+	hb.Run()
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			log.Printf("Error accepting connection: %v", err)
 			continue // Continue accepting other connections
 		}
-		go handleConnection(conn, hub)
+		go handleConnection(conn, hb)
 	}
 }
 
@@ -45,7 +56,11 @@ func main() {
 // It reads incoming data in chunks, assembles complete messages,
 // and forwards them to the hub for processing.
 // The connection is automatically closed when the function returns.
-func handleConnection(c net.Conn, hub *HubQueue) {
+// This method includes error handling and connection cleanup.
+// Example:
+//
+//	go handleConnection(conn, hub)
+func handleConnection(c net.Conn, hb *hub.HubQueue) {
 	defer func() {
 		c.Close()
 		if r := recover(); r != nil {
@@ -81,7 +96,7 @@ func handleConnection(c net.Conn, hub *HubQueue) {
 
 		if n < bufferSize {
 			// Message complete, process it
-			err = hub.Store(HubMessage{
+			err = hb.Store(hub.HubMessage{
 				IP:   c.RemoteAddr().String(),
 				Data: buffer,
 			})
