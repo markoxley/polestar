@@ -1,6 +1,7 @@
 // Package main implements the Thalamini message hub server.
 // It provides a TCP server that handles client connections and routes messages
-// between registered clients.
+// between registered clients. The server supports dynamic client registration,
+// topic-based message routing, and handles high-throughput message processing.
 package main
 
 import (
@@ -15,23 +16,31 @@ import (
 )
 
 const (
-	// bufferSize defines the size of the read buffer for incoming connections
+	// bufferSize defines the size of the read buffer for incoming connections.
+	// This value provides a balance between memory usage and read efficiency.
 	bufferSize = 1024
-	// maxMessageSize defines the maximum allowed size for a single message (10MB)
+
+	// maxMessageSize defines the maximum allowed size for a single message (10MB).
+	// Messages exceeding this size will be rejected to prevent memory exhaustion.
 	maxMessageSize = 10 * 1024 * 1024
-	// readTimeout defines how long to wait for data from a client
+
+	// readTimeout defines how long to wait for data from a client before closing
+	// the connection. This prevents idle connections from consuming resources.
 	readTimeout = 30 * time.Second
 )
 
 // main initializes and runs the Thalamini hub server.
 // It sets up a TCP listener and handles incoming connections in separate goroutines.
 // The server runs indefinitely until interrupted.
-// Example configuration:
+//
+// Configuration is loaded from a JSON file with the following structure:
 //
 //	{
-//	  "ip": "0.0.0.0",
-//	  "port": 8080
+//	  "ip": "0.0.0.0",    // IP address to bind to
+//	  "port": 8080        // Port to listen on
 //	}
+//
+// If configuration loading fails, the program will panic.
 func main() {
 	config := config.MustLoad()
 	hb := hub.New()
@@ -54,12 +63,18 @@ func main() {
 
 // handleConnection processes a single client connection.
 // It reads incoming data in chunks, assembles complete messages,
-// and forwards them to the hub for processing.
-// The connection is automatically closed when the function returns.
-// This method includes error handling and connection cleanup.
-// Example:
+// and forwards them to the hub for processing. The method implements
+// various safety measures:
+//   - Message size limits to prevent memory exhaustion
+//   - Read timeouts to handle stale connections
+//   - Panic recovery to prevent connection handler crashes
+//   - Automatic connection cleanup
 //
-//	go handleConnection(conn, hub)
+// Parameters:
+//   - c: The TCP connection to handle
+//   - hb: The hub instance for message processing
+//
+// The connection is automatically closed when the function returns.
 func handleConnection(c net.Conn, hb *hub.HubQueue) {
 	defer func() {
 		c.Close()

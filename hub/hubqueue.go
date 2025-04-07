@@ -1,6 +1,8 @@
-// Package main implements a concurrent message processing hub for the Thalamini system.
+// Package hub implements a concurrent message processing hub for the Thalamini system.
 // It provides a high-performance, thread-safe message routing system with support
-// for client registration and message forwarding.
+// for client registration, topic-based message routing, and automatic retries.
+// The package uses a worker pool pattern for efficient message processing and
+// implements backpressure handling through bounded queues.
 package hub
 
 import (
@@ -19,15 +21,25 @@ import (
 
 // Constants defining the hub configuration and timeouts
 const (
-	// queueSize is the buffer size for the message queue channel
+	// queueSize is the buffer size for the message queue channel.
+	// Messages beyond this limit will be dropped to prevent memory exhaustion.
 	queueSize = 2000
-	// defaultWorkerCount is the default number of concurrent workers processing messages
+
+	// defaultWorkerCount is the default number of concurrent workers processing messages.
+	// This provides a balance between parallelism and system resource usage.
 	defaultWorkerCount = 20
-	// dialTimeout is the maximum time allowed for establishing a TCP connection
+
+	// dialTimeout is the maximum time allowed for establishing a TCP connection.
+	// Connections that take longer will be aborted.
 	dialTimeout = 5 * time.Second
-	// writeTimeout is the maximum time allowed for writing data to a client
+
+	// writeTimeout is the maximum time allowed for writing data to a client.
+	// Writes that exceed this timeout will fail and may trigger retries.
 	writeTimeout = 10 * time.Second
-	maxRetries   = 3
+
+	// maxRetries is the maximum number of attempts to deliver a message.
+	// After this many failures, the message will be dropped.
+	maxRetries = 3
 )
 
 // HubQueue manages concurrent message processing with a buffered channel and worker pool.
@@ -37,26 +49,32 @@ const (
 type HubQueue struct {
 	messageQueue chan HubMessage // Channel for queuing messages to be processed
 	waitGroup    sync.WaitGroup  // WaitGroup for synchronizing worker goroutines
-	workerCount  int             // Number of workers to spawn
+	workerCount  int            // Number of workers to spawn
 	clients      *client.Clients // Thread-safe client registry
 	topics       *topic.Topic    // Topic subscription management
 }
 
 // New creates and returns a new Hub instance with the default worker count.
-// It initializes the message queue and client registry with default settings.
-// Example:
+// It initializes all internal components including the message queue,
+// client registry, and topic manager.
 //
-//	hub := NewHub()
+// Returns:
+//   - *HubQueue: A fully initialized hub ready for use
 func New() *HubQueue {
 	return NewWithWorkers(defaultWorkerCount)
 }
 
 // NewWithWorkers creates a new Hub with a specified number of workers.
-// If the provided worker count is less than or equal to 0, it uses the default worker count.
-// This method initializes the message queue and client registry with the specified worker count.
-// Example:
+// It allows customization of the concurrency level while maintaining
+// all other default settings.
 //
-//	hub := NewWithWorkers(10) // Create hub with 10 worker goroutines
+// Parameters:
+//   - workers: Number of concurrent message processing workers
+//
+// Returns:
+//   - *HubQueue: A fully initialized hub with the specified worker count
+//
+// If workers <= 0, the default worker count will be used.
 func NewWithWorkers(workers int) *HubQueue {
 	if workers <= 0 {
 		workers = defaultWorkerCount
@@ -72,12 +90,9 @@ func NewWithWorkers(workers int) *HubQueue {
 }
 
 // Run starts the worker pool with the configured number of workers.
-// Each worker processes messages from the message queue independently.
-// Workers continue running until Stop is called.
-// This method blocks until all workers are started.
-// Example:
-//
-//	hub.Run()
+// Each worker processes messages from the message queue independently
+// and continues running until Stop is called. This method is non-blocking
+// and returns immediately after starting all workers.
 func (h *HubQueue) Run() {
 	for i := 0; i < h.workerCount; i++ {
 		h.waitGroup.Add(1)
@@ -90,21 +105,22 @@ func (h *HubQueue) Run() {
 
 // Stop gracefully shuts down the hub by closing the message queue
 // and waiting for all workers to complete their processing.
-// This method blocks until all workers have finished.
-// Example:
-//
-//	hub.Stop()
+// This method blocks until all workers have finished their current
+// tasks and cleaned up their resources.
 func (h *HubQueue) Stop() {
 	close(h.messageQueue)
 	h.waitGroup.Wait()
 }
 
 // Store queues a message for processing by the worker pool.
-// Returns an error if the queue is full or the message cannot be processed.
-// This method is thread-safe.
-// Example:
+// It implements backpressure by returning an error when the queue is full
+// rather than blocking indefinitely.
 //
-//	err := hub.Store(message)
+// Parameters:
+//   - message: The message to be processed
+//
+// Returns:
+//   - error: nil if queued successfully, or an error if the queue is full
 func (h *HubQueue) Store(message HubMessage) error {
 	select {
 	case h.messageQueue <- message:
@@ -115,9 +131,13 @@ func (h *HubQueue) Store(message HubMessage) error {
 	return nil
 }
 
-// workerRun processes messages from the provided channel until the channel is closed.
-// It handles both registration and data messages, routing them appropriately.
-// This method is intended to be run as a goroutine and should not be called directly.
+// workerRun processes messages from the provided channel until it's closed.
+// It handles message deserialization, routing, and error recovery.
+// This method is intended to be run as a goroutine and implements the
+// core message processing logic.
+//
+// Parameters:
+//   - ch: Channel to receive messages from
 func (h *HubQueue) workerRun(ch chan HubMessage) {
 	for hm := range ch {
 		m := &msg.Message{}
@@ -143,12 +163,14 @@ func (h *HubQueue) workerRun(ch chan HubMessage) {
 }
 
 // registerClient processes a registration message and adds the client to the registry.
-// It extracts the client's port from the message data and creates a new client entry.
-// Returns an error if the registration data is invalid or incomplete.
-// This method is thread-safe.
-// Example:
+// It parses the registration data and sets up topic subscriptions.
 //
-//	err := hub.registerClient("192.168.1.1", message)
+// Parameters:
+//   - ip: Client's IP address
+//   - m: Registration message containing client details
+//
+// Returns:
+//   - error: nil if registration succeeds, or an error if the data is invalid
 func (h *HubQueue) registerClient(ip string, m *msg.Message) error {
 	data := m.Raw()
 	if len(data) < 2 {
@@ -179,12 +201,13 @@ func (h *HubQueue) registerClient(ip string, m *msg.Message) error {
 	return nil
 }
 
-// processData handles data message routing to one or more destination clients.
-// It attempts to send the message to all specified destinations and collects any errors.
-// This method spawns a goroutine for each destination to enable concurrent message delivery.
-// Example:
+// processData handles data message routing to subscribed clients.
+// It implements concurrent message delivery with automatic retries
+// and error handling.
 //
-//	hub.processData("weather", data)
+// Parameters:
+//   - topic: The message topic for routing
+//   - data: Raw message data to be delivered
 func (h *HubQueue) processData(topic string, data []byte) {
 	l := h.topics.GetClients(topic)
 	for _, client := range l {
@@ -207,18 +230,22 @@ func (h *HubQueue) processData(topic string, data []byte) {
 	}
 }
 
-// sendData sends a message to a specific client with retry logic.
-// It handles connection establishment, write timeouts, and ensures complete message delivery.
-// Returns an error if the client is not found, connection fails, or write is incomplete.
-// This method is thread-safe.
-// Example:
+// sendData attempts to deliver a message to a specific client.
+// It handles connection management, timeouts, and delivery confirmation.
 //
-//	err := hub.sendData(client, data)
+// Parameters:
+//   - c: Target client
+//   - data: Message data to send
+//
+// Returns:
+//   - error: nil if delivery succeeds, or an error describing the failure
 func (h *HubQueue) sendData(c *client.Client, data []byte) error {
 	dialer := net.Dialer{Timeout: dialTimeout}
-	client, err := dialer.Dial("tcp4", fmt.Sprintf("%s:%d", c.IP, c.Port))
+	// Use JoinHostPort to properly handle IPv6 addresses
+	addr := net.JoinHostPort(c.IP, fmt.Sprintf("%d", c.Port))
+	client, err := dialer.Dial("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("connection failed to %s: %v", c.Name, err)
+		return fmt.Errorf("connection failed to %s: %v", addr, err)
 	}
 	defer client.Close()
 
@@ -229,10 +256,10 @@ func (h *HubQueue) sendData(c *client.Client, data []byte) error {
 
 	n, err := client.Write(data)
 	if err != nil {
-		return fmt.Errorf("write failed to %s: %v", c.Name, err)
+		return fmt.Errorf("write failed to %s: %v", addr, err)
 	}
 	if n < len(data) {
-		return fmt.Errorf("incomplete write to %s: sent %d of %d bytes", c.Name, n, len(data))
+		return fmt.Errorf("incomplete write to %s: sent %d of %d bytes", addr, n, len(data))
 	}
 
 	return nil

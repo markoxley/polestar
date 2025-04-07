@@ -1,6 +1,7 @@
-// Package msg provides message handling functionality for inter-service communication
-// within the hub system. It implements a custom binary message protocol for efficient
-// data transfer between components.
+// Package msg implements a binary message protocol for the Thalamini system.
+// It provides efficient serialization and deserialization of messages with support
+// for multiple data types, message framing, and data integrity verification through
+// checksums. The protocol is optimized for low overhead in high-throughput scenarios.
 package msg
 
 import (
@@ -11,11 +12,13 @@ import (
 	"strings"
 )
 
-// Protocol-specific byte constants used for message framing and data type identification
-var (
+// Protocol-specific byte constants used for message framing and type identification
+const (
 	// Message frame delimiters
-	startBytes = []byte{0xff, 0xfe} // Start of message marker
-	endBytes   = []byte{0x05, 0xFD} // End of message marker
+	startByte1 = byte(0xff) // First byte of start marker
+	startByte2 = byte(0xfe) // Second byte of start marker
+	endByte1   = byte(0x05) // First byte of end marker
+	endByte2   = byte(0xfd) // Second byte of end marker
 
 	// Message type identifiers
 	RegMsgByte  = byte(0xfe) // Registration message type
@@ -28,33 +31,49 @@ var (
 
 	// Data type identifiers
 	dtString = byte(0x11) // String data type
-	dtInt    = byte(0x12) // Integer data type
-	dtFloat  = byte(0x13) // Float data type
+	dtInt    = byte(0x12) // Integer data type (64-bit)
+	dtFloat  = byte(0x13) // Float data type (64-bit)
 	dtBool   = byte(0x14) // Boolean data type
 
-	vlTrue  = byte(0x15)
-	vlFalse = byte(0x16)
+	// Boolean value encodings
+	vlTrue  = byte(0x15) // True value marker
+	vlFalse = byte(0x16) // False value marker
 )
 
-// MessageData represents a key-value store for message payload data
-// It supports various data types including strings, integers, floats, and booleans.
+// Pre-allocated byte slices for common protocol elements
+var (
+	startBytes = []byte{startByte1, startByte2} // Start of message marker
+	endBytes   = []byte{endByte1, endByte2}     // End of message marker
+)
+
+// MessageData represents a key-value store for message payload data.
+// It supports the following data types:
+//   - string
+//   - int64
+//   - float64
+//   - bool
+//
+// Any other data types will result in an error during serialization.
 type MessageData map[string]interface{}
 
-// Message represents a communication packet in the hub system
-// It contains metadata about the message type and topic, as well as the actual payload data.
+// Message represents a communication packet in the hub system.
+// It implements a binary protocol with the following format:
+//   [start marker (2B)] [length (2B)] [topic] [delimiter] [type (1B)]
+//   [data] [delimiter] [checksum (1B)] [end marker (2B)]
 type Message struct {
-	MsgType byte // Type of the message (registration or data)
-	//Source      string   // Source identifier of the message
-	//Destination []string // List of destination identifiers
-	Topic string
-	data  []byte // Raw message payload data
+	MsgType byte   // Type of message (RegMsgByte or DataMsgByte)
+	Topic   string // Routing topic for the message
+	data    []byte // Raw message payload
 }
 
-// NewMessage creates a new data message with the specified topic
-// This method initializes a new Message with the data message type.
-// Example:
+// NewMessage creates a new data message with the specified topic.
+// The message is initialized with DataMsgByte type and empty payload.
 //
-//	msg := NewMessage("weather")
+// Parameters:
+//   - topic: The routing topic for this message
+//
+// Returns:
+//   - *Message: A new message instance ready for data
 func NewMessage(topic string) *Message {
 	return &Message{
 		Topic:   topic,
@@ -62,13 +81,17 @@ func NewMessage(topic string) *Message {
 	}
 }
 
-// NewRegistrationMessage creates a new registration message for a service
-// with the specified source and port number
-// This method initializes a new Message with the registration message type
-// and includes the service's port and topics in the message data.
-// Example:
+// NewRegistrationMessage creates a registration message for a service.
+// The message includes the service's listening port and subscribed topics.
+// The data is encoded as: [port (2B)] [name,topic1,topic2,...]
 //
-//	msg := NewRegistrationMessage(8080, "weather-service", "weather", "forecast")
+// Parameters:
+//   - port: TCP port the service is listening on
+//   - name: Unique identifier for the service
+//   - topics: List of topics to subscribe to
+//
+// Returns:
+//   - *Message: A registration message ready for transmission
 func NewRegistrationMessage(port uint16, name string, topics ...string) *Message {
 	data := append([]string{name}, topics...)
 	return &Message{
@@ -78,17 +101,15 @@ func NewRegistrationMessage(port uint16, name string, topics ...string) *Message
 	}
 }
 
-// SetData sets the message's payload data using a MessageData structure
-// It converts the data into a binary format for transmission.
-// Returns an error if the data contains unsupported types.
-// Example:
+// SetData encodes the provided data map into the message's binary format.
+// Each key-value pair is encoded as:
+//   [key] [separator] [type] [value] [delimiter]
 //
-//	data := MessageData{
-//	  "temperature": 25.5,
-//	  "humidity":   60,
-//	  "location":   "London",
-//	}
-//	err := msg.SetData(data)
+// Parameters:
+//   - data: Map of key-value pairs to encode
+//
+// Returns:
+//   - error: nil if successful, or error if data contains unsupported types
 func (m *Message) SetData(data MessageData) error {
 	buffer := bytes.NewBuffer(nil)
 	for k, v := range data {
@@ -121,11 +142,13 @@ func (m *Message) SetData(data MessageData) error {
 	return nil
 }
 
-// Data deserializes the message's internal data format into a MessageData structure
-// Returns an error if the data format is invalid or contains unsupported types
-// Example:
+// Data decodes the message's binary data into a MessageData structure.
+// It processes each key-value pair according to its type marker and
+// converts the values back to their original Go types.
 //
-//	data, err := msg.Data()
+// Returns:
+//   - MessageData: Decoded key-value pairs
+//   - error: nil if successful, or error if the data format is invalid
 func (m *Message) Data() (MessageData, error) {
 	md := make(MessageData)
 	buffer := make([]byte, 0, len(m.data))
@@ -169,21 +192,24 @@ func (m *Message) Data() (MessageData, error) {
 	return md, nil
 }
 
-// Raw returns the raw binary data of the message
-// This method is used internally by the hub for message transmission.
-// Example:
+// Raw returns the message's raw binary payload data.
+// This method is primarily used internally by the hub for
+// message transmission and should not be modified externally.
 //
-//	rawData := msg.Raw()
+// Returns:
+//   - []byte: Raw binary payload data
 func (m *Message) Raw() []byte {
 	return m.data
 }
 
-// Serialize converts the Message into a byte slice according to the protocol
-// The format is: [start bytes (2)] [length (2)] [source] [end part] [destinations] [end part] [type (1)] [data] [end part] [checksum (1)] [end bytes (2)]
-// This method is used internally by the hub for message transmission.
-// Example:
+// Serialize encodes the entire message into a binary format.
+// The format includes framing, length, topic, type, payload, and checksum.
+// Message format:
+//   [start (2B)] [length (2B)] [topic] [delimiter] [type (1B)]
+//   [data] [delimiter] [checksum (1B)] [end (2B)]
 //
-//	serialized := msg.Serialize()
+// Returns:
+//   - []byte: Complete serialized message
 func (m *Message) Serialize() []byte {
 	// Calculate size of message parts
 	topicLen := len(m.Topic)
@@ -220,12 +246,14 @@ func (m *Message) Serialize() []byte {
 	return buffer
 }
 
-// Deserialize parses a byte slice into the Message structure
-// Returns an error if the message format is invalid or checksum verification fails
-// This method is used internally by the hub for message reception.
-// Example:
+// Deserialize decodes a binary message into this Message instance.
+// It verifies the message format, framing, and checksum.
 //
-//	err := msg.Deserialize(serialized)
+// Parameters:
+//   - data: Raw binary message to decode
+//
+// Returns:
+//   - error: nil if successful, or error describing the validation failure
 func (m *Message) Deserialize(data []byte) error {
 	l := len(data)
 	if l < 10 {
@@ -271,8 +299,14 @@ func (m *Message) Deserialize(data []byte) error {
 	return nil
 }
 
-// generateChecksum calculates a checksum for the message data
-// The checksum is calculated by XORing all bytes in the message except for the checksum byte and end bytes
+// generateChecksum calculates a simple XOR checksum of the message data.
+// The checksum covers all bytes except the checksum itself and end marker.
+//
+// Parameters:
+//   - data: Byte slice to calculate checksum for
+//
+// Returns:
+//   - byte: Calculated checksum value
 func (m *Message) generateChecksum(data []byte) byte {
 	var checksum byte
 	for i := 0; i < len(data)-3; i++ { // -3 to exclude checksum and end bytes

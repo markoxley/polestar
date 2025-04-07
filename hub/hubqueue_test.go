@@ -20,7 +20,8 @@ type mockClient struct {
 func newMockClient(t *testing.T) *mockClient {
 	listener, err := net.Listen("tcp4", "127.0.0.1:80")
 	if err != nil {
-		t.Fatalf("Failed to create mock client: %v", err)
+		t.Errorf("Failed to create mock client: %v", err)
+		return nil
 	}
 
 	mc := &mockClient{
@@ -84,7 +85,7 @@ func TestHubQueue(t *testing.T) {
 			Data: regMsg.Serialize(),
 		})
 		if err != nil {
-			t.Fatalf("Failed to register client: %v", err)
+			t.Errorf("Failed to register client: %v", err)
 		}
 
 		// Wait a bit for registration to complete
@@ -93,14 +94,14 @@ func TestHubQueue(t *testing.T) {
 		// Send test message
 		hm := msg.NewMessage("weather")
 		if err := hm.SetData(msg.MessageData{"data": "test message"}); err != nil {
-			t.Fatalf("Failed to set message data: %v", err)
+			t.Errorf("Failed to set message data: %v", err)
 		}
 		err = q.Store(HubMessage{
 			IP:   "127.0.0.1",
 			Data: hm.Serialize(),
 		})
 		if err != nil {
-			t.Fatalf("Failed to store message: %v", err)
+			t.Errorf("Failed to store message: %v", err)
 		}
 
 		// Wait for message with timeout
@@ -108,7 +109,7 @@ func TestHubQueue(t *testing.T) {
 		for len(mock.received) == 0 {
 			select {
 			case <-tm.C:
-				t.Fatal("Timeout waiting for message")
+				t.Errorf("Timeout waiting for message")
 				return
 			default:
 				time.Sleep(50 * time.Millisecond)
@@ -117,11 +118,11 @@ func TestHubQueue(t *testing.T) {
 		im := msg.Message{}
 		err = im.Deserialize(mock.received[0])
 		if err != nil {
-			t.Fatalf("Failed to deserialize message: %v", err)
+			t.Errorf("Failed to deserialize message: %v", err)
 		}
 		id, err := im.Data()
 		if err != nil {
-			t.Fatalf("Failed to get message data: %v", err)
+			t.Errorf("Failed to get message data: %v", err)
 		}
 		if len(id) == 0 {
 			t.Errorf("Expected non-empty message data, got empty")
@@ -140,7 +141,7 @@ func TestHubQueue(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			tm := msg.NewMessage("test")
 			if err := tm.SetData(msg.MessageData{"data": fmt.Sprintf("message-%d", i)}); err != nil {
-				t.Fatalf("Failed to set message data: %v", err)
+				t.Errorf("Failed to set message data: %v", err)
 			}
 			msg := HubMessage{
 				IP:   "127.0.0.1",
@@ -176,7 +177,7 @@ func TestHubQueueConcurrency(t *testing.T) {
 				defer wg.Done()
 				tm := msg.NewMessage("test")
 				if err := tm.SetData(msg.MessageData{"data": fmt.Sprintf("concurrent-message-%d", id)}); err != nil {
-					t.Fatalf("Failed to set message data: %v", err)
+					t.Errorf("Failed to set message data: %v", err)
 				}
 				msg := HubMessage{
 					IP:   "127.0.0.1",

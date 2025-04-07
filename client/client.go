@@ -1,4 +1,7 @@
-// Package main provides client management functionality for the Thalamini system.
+// Package client provides thread-safe client management for the Thalamini system.
+// It implements a registry for tracking connected clients with case-insensitive
+// lookups and concurrent access support. The package is designed to be used as
+// part of a larger messaging system where clients can dynamically join and leave.
 package client
 
 import (
@@ -7,40 +10,54 @@ import (
 )
 
 // Client represents a connected client in the Thalamini system.
-// It maintains the client's network address and identification details.
-// All client names are stored in lowercase for case-insensitive lookups.
+// All fields are immutable after creation to ensure thread safety.
 type Client struct {
-	IP   string // IP address of the client
-	Port uint16 // Port number the client is listening on
-	Name string // Unique identifier for the client
+	IP   string // Network address of the client (IPv4 or IPv6)
+	Port uint16 // TCP port the client is listening on
+	Name string // Unique identifier (stored in lowercase)
 }
 
 // Clients provides thread-safe management of connected clients.
-// It supports concurrent access to client information through mutex locking.
-// All client operations are case-insensitive (names are stored in lowercase).
+// It uses a mutex to protect concurrent access to the client registry
+// and ensures case-insensitive operations by normalizing client names
+// to lowercase.
 type Clients struct {
-	clients map[string]*Client // Map of client name to Client object
-	mutex   sync.Mutex         // Mutex for thread-safe access
+	clients map[string]*Client // Map of lowercase name to Client
+	mutex   sync.Mutex        // Protects concurrent access
 }
 
+// New creates and returns a new Clients registry.
+// The registry is initialized with an empty client map
+// and is ready for concurrent use.
+//
+// Returns:
+//   - *Clients: A new, empty client registry
 func New() *Clients {
 	return &Clients{
 		clients: make(map[string]*Client),
 	}
 }
 
-// Add registers a new client in the system.
-// This method is thread-safe and converts the client name to lowercase.
-// The client will be added to the internal map with its lowercase name.
-// Example:
+// Add registers multiple new clients in the system.
+// This is a convenience method that calls AddSingle for each client.
+// The operation is atomic for each individual client but not for the
+// entire batch.
 //
-//	clients.Add(Client{IP: "192.168.1.1", Port: 8080, Name: "Client1"})
+// Parameters:
+//   - clients: Variable number of Client structs to register
 func (c *Clients) Add(clients ...Client) {
 	for _, client := range clients {
 		c.AddSingle(client)
 	}
 }
 
+// AddSingle registers a single new client in the system.
+// The client's name is converted to lowercase before storage
+// to ensure case-insensitive lookups. If a client with the
+// same name already exists, it will be overwritten.
+//
+// Parameters:
+//   - client: The Client struct to register
 func (c *Clients) AddSingle(client Client) {
 	client.Name = strings.ToLower(client.Name)
 	c.mutex.Lock()
@@ -49,11 +66,11 @@ func (c *Clients) AddSingle(client Client) {
 }
 
 // Remove deregisters a client from the system.
-// This method is thread-safe and removes the client by its lowercase name.
-// The client name is automatically converted to lowercase before removal.
-// Example:
+// The operation is case-insensitive and is a no-op if the
+// client doesn't exist.
 //
-//	clients.Remove("Client1")
+// Parameters:
+//   - name: The name of the client to remove (case-insensitive)
 func (c *Clients) Remove(name string) {
 	name = strings.ToLower(name)
 	c.mutex.Lock()
@@ -62,11 +79,15 @@ func (c *Clients) Remove(name string) {
 }
 
 // Get retrieves a client by name.
-// This method is thread-safe and performs a case-insensitive lookup.
-// Returns the client object and a boolean indicating if the client was found.
-// Example:
+// The lookup is case-insensitive. The returned Client pointer
+// should not be modified as it is shared across goroutines.
 //
-//	client, exists := clients.Get("Client1")
+// Parameters:
+//   - name: The name of the client to retrieve (case-insensitive)
+//
+// Returns:
+//   - *Client: Pointer to the client if found, nil otherwise
+//   - bool: True if the client exists, false otherwise
 func (c *Clients) Get(name string) (*Client, bool) {
 	name = strings.ToLower(name)
 	c.mutex.Lock()
@@ -76,11 +97,13 @@ func (c *Clients) Get(name string) (*Client, bool) {
 }
 
 // Exists checks if a client with the given name exists.
-// This method is thread-safe and performs a case-insensitive lookup.
-// Returns true if the client exists, false otherwise.
-// Example:
+// The lookup is case-insensitive.
 //
-//	exists := clients.Exists("Client1")
+// Parameters:
+//   - name: The name to check (case-insensitive)
+//
+// Returns:
+//   - bool: True if the client exists, false otherwise
 func (c *Clients) Exists(name string) bool {
 	name = strings.ToLower(name)
 	c.mutex.Lock()
@@ -90,11 +113,12 @@ func (c *Clients) Exists(name string) bool {
 }
 
 // List returns a slice containing all registered clients.
-// This method is thread-safe and provides a snapshot of all current clients.
-// The returned slice is a copy of the internal data and can be safely modified.
-// Example:
+// The returned slice is a new copy to ensure thread safety,
+// but the Client pointers within the slice point to the
+// same underlying data as the registry.
 //
-//	allClients := clients.List()
+// Returns:
+//   - []*Client: Slice of pointers to all registered clients
 func (c *Clients) List() []*Client {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
