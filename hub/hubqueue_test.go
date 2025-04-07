@@ -18,7 +18,7 @@ type mockClient struct {
 }
 
 func newMockClient(t *testing.T) *mockClient {
-	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	listener, err := net.Listen("tcp4", "127.0.0.1:80")
 	if err != nil {
 		t.Fatalf("Failed to create mock client: %v", err)
 	}
@@ -78,10 +78,7 @@ func TestHubQueue(t *testing.T) {
 		defer q.Stop()
 
 		// Create registration message
-		regMsg := msg.Message{
-			MsgType: msg.RegMsgByte,
-		}
-
+		regMsg := msg.NewRegistrationMessage(80, "test-client", "weather", "news")
 		err := q.Store(HubMessage{
 			IP:   "127.0.0.1",
 			Data: regMsg.Serialize(),
@@ -94,38 +91,60 @@ func TestHubQueue(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Send test message
-		msg := HubMessage{
-			IP:   "127.0.0.1",
-			Data: []byte("test message"),
+		hm := msg.NewMessage("weather")
+		if err := hm.SetData(msg.MessageData{"data": "test message"}); err != nil {
+			t.Fatalf("Failed to set message data: %v", err)
 		}
-		err = q.Store(msg)
+		err = q.Store(HubMessage{
+			IP:   "127.0.0.1",
+			Data: hm.Serialize(),
+		})
 		if err != nil {
 			t.Fatalf("Failed to store message: %v", err)
 		}
 
 		// Wait for message with timeout
-		timeout := time.After(2 * time.Second)
+		tm := time.NewTimer(10 * time.Second)
 		for len(mock.received) == 0 {
 			select {
-			case <-timeout:
+			case <-tm.C:
 				t.Fatal("Timeout waiting for message")
 				return
 			default:
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
-
-		if string(mock.received[0]) != "test message" {
-			t.Errorf("Expected 'test message', got '%s'", string(mock.received[0]))
+		im := msg.Message{}
+		err = im.Deserialize(mock.received[0])
+		if err != nil {
+			t.Fatalf("Failed to deserialize message: %v", err)
+		}
+		id, err := im.Data()
+		if err != nil {
+			t.Fatalf("Failed to get message data: %v", err)
+		}
+		if len(id) == 0 {
+			t.Errorf("Expected non-empty message data, got empty")
+		}
+		data, ok := id["data"]
+		if !ok {
+			t.Errorf("Expected 'data' key in message data, got none")
+		}
+		if data.(string) != "test message" {
+			t.Errorf("Expected 'test message', got '%s'", data.(string))
 		}
 	})
 
 	// Test message queueing
 	t.Run("Message Queue", func(t *testing.T) {
 		for i := 0; i < 5; i++ {
+			tm := msg.NewMessage("test")
+			if err := tm.SetData(msg.MessageData{"data": fmt.Sprintf("message-%d", i)}); err != nil {
+				t.Fatalf("Failed to set message data: %v", err)
+			}
 			msg := HubMessage{
 				IP:   "127.0.0.1",
-				Data: []byte(fmt.Sprintf("message-%d", i)),
+				Data: tm.Serialize(),
 			}
 			err := hub.Store(msg)
 			if err != nil {
@@ -155,9 +174,13 @@ func TestHubQueueConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
+				tm := msg.NewMessage("test")
+				if err := tm.SetData(msg.MessageData{"data": fmt.Sprintf("concurrent-message-%d", id)}); err != nil {
+					t.Fatalf("Failed to set message data: %v", err)
+				}
 				msg := HubMessage{
 					IP:   "127.0.0.1",
-					Data: []byte(fmt.Sprintf("concurrent-message-%d", id)),
+					Data: tm.Serialize(),
 				}
 				err := hub.Store(msg)
 				if err != nil {

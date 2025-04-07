@@ -123,6 +123,8 @@ func (h *HubQueue) workerRun(ch chan HubMessage) {
 		m := &msg.Message{}
 		err := m.Deserialize(hm.Data)
 		if err != nil {
+			log.Println("Data", hm.Data)
+			log.Println("String", string(hm.Data))
 			log.Printf("Failed to deserialize message: %v", err)
 			continue
 		}

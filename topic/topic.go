@@ -50,13 +50,14 @@ func (t *Topic) Add(c string, topic ...string) {
 func (t *Topic) Remove(c string) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	for _, l := range t.topics {
+	for i, l := range t.topics {
 		for i, nm := range l {
 			if nm == c {
 				l = append(l[:i], l[i+1:]...)
 				break
 			}
 		}
+		t.topics[i] = l
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 // Protocol-specific byte constants used for message framing and data type identification
 var (
 	// Message frame delimiters
-	startBytes = []byte{0xFE, 0xFF} // Start of message marker
+	startBytes = []byte{0xff, 0xfe} // Start of message marker
 	endBytes   = []byte{0x05, 0xFD} // End of message marker
 
 	// Message type identifiers
@@ -53,7 +53,8 @@ type Message struct {
 // NewMessage creates a new data message with the specified topic
 // This method initializes a new Message with the data message type.
 // Example:
-//   msg := NewMessage("weather")
+//
+//	msg := NewMessage("weather")
 func NewMessage(topic string) *Message {
 	return &Message{
 		Topic:   topic,
@@ -66,7 +67,8 @@ func NewMessage(topic string) *Message {
 // This method initializes a new Message with the registration message type
 // and includes the service's port and topics in the message data.
 // Example:
-//   msg := NewRegistrationMessage(8080, "weather-service", "weather", "forecast")
+//
+//	msg := NewRegistrationMessage(8080, "weather-service", "weather", "forecast")
 func NewRegistrationMessage(port uint16, name string, topics ...string) *Message {
 	data := append([]string{name}, topics...)
 	return &Message{
@@ -80,12 +82,13 @@ func NewRegistrationMessage(port uint16, name string, topics ...string) *Message
 // It converts the data into a binary format for transmission.
 // Returns an error if the data contains unsupported types.
 // Example:
-//   data := MessageData{
-//     "temperature": 25.5,
-//     "humidity":   60,
-//     "location":   "London",
-//   }
-//   err := msg.SetData(data)
+//
+//	data := MessageData{
+//	  "temperature": 25.5,
+//	  "humidity":   60,
+//	  "location":   "London",
+//	}
+//	err := msg.SetData(data)
 func (m *Message) SetData(data MessageData) error {
 	buffer := bytes.NewBuffer(nil)
 	for k, v := range data {
@@ -121,7 +124,8 @@ func (m *Message) SetData(data MessageData) error {
 // Data deserializes the message's internal data format into a MessageData structure
 // Returns an error if the data format is invalid or contains unsupported types
 // Example:
-//   data, err := msg.Data()
+//
+//	data, err := msg.Data()
 func (m *Message) Data() (MessageData, error) {
 	md := make(MessageData)
 	buffer := make([]byte, 0, len(m.data))
@@ -168,7 +172,8 @@ func (m *Message) Data() (MessageData, error) {
 // Raw returns the raw binary data of the message
 // This method is used internally by the hub for message transmission.
 // Example:
-//   rawData := msg.Raw()
+//
+//	rawData := msg.Raw()
 func (m *Message) Raw() []byte {
 	return m.data
 }
@@ -177,7 +182,8 @@ func (m *Message) Raw() []byte {
 // The format is: [start bytes (2)] [length (2)] [source] [end part] [destinations] [end part] [type (1)] [data] [end part] [checksum (1)] [end bytes (2)]
 // This method is used internally by the hub for message transmission.
 // Example:
-//   serialized := msg.Serialize()
+//
+//	serialized := msg.Serialize()
 func (m *Message) Serialize() []byte {
 	// Calculate size of message parts
 	topicLen := len(m.Topic)
@@ -218,7 +224,8 @@ func (m *Message) Serialize() []byte {
 // Returns an error if the message format is invalid or checksum verification fails
 // This method is used internally by the hub for message reception.
 // Example:
-//   err := msg.Deserialize(serialized)
+//
+//	err := msg.Deserialize(serialized)
 func (m *Message) Deserialize(data []byte) error {
 	l := len(data)
 	if l < 10 {
