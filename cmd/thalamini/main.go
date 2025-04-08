@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/markoxley/dani/config"
@@ -76,6 +77,7 @@ func main() {
 //
 // The connection is automatically closed when the function returns.
 func handleConnection(c net.Conn, hb *hub.HubQueue) {
+
 	defer func() {
 		c.Close()
 		if r := recover(); r != nil {
@@ -110,9 +112,11 @@ func handleConnection(c net.Conn, hb *hub.HubQueue) {
 		buffer = append(buffer, chunk[:n]...)
 
 		if n < bufferSize {
+			ip := c.RemoteAddr().String()
+			ip = ip[:strings.Index(ip, ":")]
 			// Message complete, process it
 			err = hb.Store(hub.HubMessage{
-				IP:   c.RemoteAddr().String(),
+				IP:   ip,
 				Data: buffer,
 			})
 			if err != nil {

@@ -23,7 +23,7 @@ const (
 	// Message type identifiers
 	RegMsgByte  = byte(0xfe) // Registration message type
 	DataMsgByte = byte(0xff) // Data message type
-
+	PingMsgByte = byte(0xfd) // Ping message type for client liveness tracking
 	// Message part delimiters
 	endPartByte     = byte(0x02) // End of message part marker
 	endDataPartByte = byte(0x03) // End of data section marker
@@ -58,8 +58,9 @@ type MessageData map[string]interface{}
 
 // Message represents a communication packet in the hub system.
 // It implements a binary protocol with the following format:
-//   [start marker (2B)] [length (2B)] [topic] [delimiter] [type (1B)]
-//   [data] [delimiter] [checksum (1B)] [end marker (2B)]
+//
+//	[start marker (2B)] [length (2B)] [topic] [delimiter] [type (1B)]
+//	[data] [delimiter] [checksum (1B)] [end marker (2B)]
 type Message struct {
 	MsgType byte   // Type of message (RegMsgByte or DataMsgByte)
 	Topic   string // Routing topic for the message
@@ -101,9 +102,27 @@ func NewRegistrationMessage(port uint16, name string, topics ...string) *Message
 	}
 }
 
+// NewPingMessage creates a new ping message for client liveness tracking.
+// The ping message contains the client's name and is sent periodically
+// to inform the hub that the client is still active.
+//
+// Parameters:
+//   - name: The name of the client sending the ping
+//
+// Returns:
+//   - *Message: A new ping message ready to be sent to the hub
+func NewPingMessage(name string) *Message {
+	return &Message{
+		Topic:   "ping",
+		MsgType: PingMsgByte,
+		data:    []byte(name),
+	}
+}
+
 // SetData encodes the provided data map into the message's binary format.
 // Each key-value pair is encoded as:
-//   [key] [separator] [type] [value] [delimiter]
+//
+//	[key] [separator] [type] [value] [delimiter]
 //
 // Parameters:
 //   - data: Map of key-value pairs to encode
@@ -205,8 +224,9 @@ func (m *Message) Raw() []byte {
 // Serialize encodes the entire message into a binary format.
 // The format includes framing, length, topic, type, payload, and checksum.
 // Message format:
-//   [start (2B)] [length (2B)] [topic] [delimiter] [type (1B)]
-//   [data] [delimiter] [checksum (1B)] [end (2B)]
+//
+//	[start (2B)] [length (2B)] [topic] [delimiter] [type (1B)]
+//	[data] [delimiter] [checksum (1B)] [end (2B)]
 //
 // Returns:
 //   - []byte: Complete serialized message

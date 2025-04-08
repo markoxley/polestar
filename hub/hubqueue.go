@@ -31,15 +31,17 @@ const (
 
 	// dialTimeout is the maximum time allowed for establishing a TCP connection.
 	// Connections that take longer will be aborted.
-	dialTimeout = 5 * time.Second
+	dialTimeout = 1 * time.Second
 
 	// writeTimeout is the maximum time allowed for writing data to a client.
 	// Writes that exceed this timeout will fail and may trigger retries.
-	writeTimeout = 10 * time.Second
+	writeTimeout = 2 * time.Second
 
 	// maxRetries is the maximum number of attempts to deliver a message.
 	// After this many failures, the message will be dropped.
 	maxRetries = 3
+
+	garbageTimer = time.Minute * 2
 )
 
 // HubQueue manages concurrent message processing with a buffered channel and worker pool.
@@ -49,7 +51,7 @@ const (
 type HubQueue struct {
 	messageQueue chan HubMessage // Channel for queuing messages to be processed
 	waitGroup    sync.WaitGroup  // WaitGroup for synchronizing worker goroutines
-	workerCount  int            // Number of workers to spawn
+	workerCount  int             // Number of workers to spawn
 	clients      *client.Clients // Thread-safe client registry
 	topics       *topic.Topic    // Topic subscription management
 }
@@ -81,12 +83,14 @@ func NewWithWorkers(workers int) *HubQueue {
 	}
 	c := client.New()
 	t := topic.New()
-	return &HubQueue{
+	h := &HubQueue{
 		messageQueue: make(chan HubMessage, queueSize),
 		workerCount:  workers,
 		clients:      c,
 		topics:       t,
 	}
+	go h.garbageCollection()
+	return h
 }
 
 // Run starts the worker pool with the configured number of workers.
@@ -131,6 +135,21 @@ func (h *HubQueue) Store(message HubMessage) error {
 	return nil
 }
 
+// garbageCollection runs a periodic cleanup of inactive clients.
+// It runs every 30 seconds and removes any clients that haven't
+// sent a ping message within the last 30 seconds. This ensures
+// that the hub maintains an accurate list of active clients and
+// prevents resource leaks from disconnected clients.
+func (h *HubQueue) garbageCollection() {
+	tk := time.NewTicker(garbageTimer)
+	for {
+		select {
+		case <-tk.C:
+			h.clients.Cleanup(garbageTimer)
+		}
+	}
+}
+
 // workerRun processes messages from the provided channel until it's closed.
 // It handles message deserialization, routing, and error recovery.
 // This method is intended to be run as a goroutine and implements the
@@ -149,6 +168,8 @@ func (h *HubQueue) workerRun(ch chan HubMessage) {
 			continue
 		}
 		switch m.MsgType {
+		case msg.PingMsgByte:
+			err = h.receivePing(m)
 		case msg.RegMsgByte:
 			err = h.registerClient(hm.IP, m)
 		case msg.DataMsgByte:
@@ -160,6 +181,25 @@ func (h *HubQueue) workerRun(ch chan HubMessage) {
 			log.Printf("Failed to process message: %v", err)
 		}
 	}
+}
+
+// receivePing processes a ping message from a client and updates
+// their last seen timestamp. This is used to track client liveness
+// and determine which clients should be removed during garbage collection.
+//
+// Parameters:
+//   - m: The ping message containing the client's name
+//
+// Returns:
+//   - error: If the ping message is invalid or the client is not registered
+func (h *HubQueue) receivePing(m *msg.Message) error {
+	data := m.Raw()
+	if len(data) == 0 {
+		return errors.New("invalid ping message")
+	}
+	name := string(data)
+	log.Println("Ping")
+	return h.clients.Ping(name)
 }
 
 // registerClient processes a registration message and adds the client to the registry.
@@ -188,16 +228,13 @@ func (h *HubQueue) registerClient(ip string, m *msg.Message) error {
 		return errors.New("missing source name")
 	}
 	topics = topics[1:]
-	h.clients.Add(client.Client{
-		IP:   ip,
-		Port: port,
-		Name: name,
-	})
+	h.clients.Add(client.NewClient(ip, port, name))
 
 	if len(topics) == 0 {
 		return nil
 	}
 	h.topics.Add(name, topics...)
+	log.Printf("Registered client %s with topics %v\n", name, topics)
 	return nil
 }
 
@@ -211,22 +248,25 @@ func (h *HubQueue) registerClient(ip string, m *msg.Message) error {
 func (h *HubQueue) processData(topic string, data []byte) {
 	l := h.topics.GetClients(topic)
 	for _, client := range l {
-		go func(name string, d []byte) {
-			c, ok := h.clients.Get(name)
-			if !ok {
-				return
-			}
-			retry := 0
-			for retry < maxRetries {
-				err := h.sendData(c, d)
-				if err == nil {
-					return
-				}
-				log.Printf("Failed to send message to %s: %v", name, err)
-				retry++
-			}
-			log.Printf("Failed to send message to %s after %d attempts", c.Name, maxRetries)
-		}(client, data)
+		//go func(name string, d []byte) {
+		c, ok := h.clients.Get(client)
+		if !ok {
+			return
+		}
+		c.Send(data)
+
+		// retry := 0
+		// for retry < maxRetries {
+		// 	err := h.sendData(c, data)
+		// 	if err == nil {
+		// 		return
+		// 	}
+		// 	log.Printf("Failed to send message to %s: %v", client, err)
+		// 	retry++
+		// 	time.Sleep(time.Millisecond)
+		// }
+		// log.Printf("Failed to send message to %s after %d attempts", client, maxRetries)
+		//}(client, data)
 	}
 }
 

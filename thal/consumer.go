@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
+	"time"
 
 	"github.com/markoxley/dani/msg"
 )
@@ -18,13 +20,13 @@ type Consumer interface {
 	// internally as it does not return an error value. Implementations should be
 	// thread-safe as messages may be processed concurrently.
 	Consume(*msg.Message)
-	
+
 	// GetHub returns the address and port of the hub this consumer connects to.
 	// This is used during registration and should return consistent values.
 	GetHub() (string, uint16)
 }
 
-// Consume starts a consumer service that listens for messages on the specified topics.
+// Listen starts a consumer service that listens for messages on the specified topics.
 // It registers the consumer with the hub and starts a TCP listener for incoming messages.
 // The service runs in the background and will continue until the program exits.
 //
@@ -36,11 +38,12 @@ type Consumer interface {
 //   - topics: List of topics to subscribe to
 //
 // Returns an error if registration fails or if the TCP listener cannot be started.
-func Consume(name string, addr string, port uint16, c Consumer, topics ...string) error {
+func Listen(name string, addr string, port uint16, c Consumer, topics ...string) error {
 	err := register(c, name, port, topics...)
 	if err != nil {
 		return err
 	}
+	go ping(c, name)
 	go func() {
 		l, err := net.Listen("tcp4", fmt.Sprintf("%s:%d", addr, port))
 		if err != nil {
@@ -96,15 +99,81 @@ func handler(c Consumer, conn net.Conn) {
 func register(c Consumer, name string, port uint16, topics ...string) error {
 	reg := msg.NewRegistrationMessage(port, name, topics...)
 	ip, pt := c.GetHub()
-	clnt, err := net.Dial("tcp4", fmt.Sprintf("%s:%d", ip, pt))
-	if err != nil {
-		return err
-	}
-	defer clnt.Close()
+	return send(reg, ip, pt)
+}
 
-	_, err = clnt.Write(reg.Serialize())
-	if err != nil {
-		return err
+// ping sends a ping message to the hub every 15 seconds to maintain
+// client liveness tracking. If a client fails to ping for 2 minutes,
+// the hub will consider it inactive and remove it during cleanup.
+//
+// Parameters:
+//   - c: The consumer instance to ping from
+//   - name: The name of this consumer for identification
+//
+// The ping routine runs indefinitely until the consumer is stopped.
+// Each ping establishes a temporary connection to send the message.
+func ping(c Consumer, name string) error {
+	t := time.NewTicker(time.Second * 15) // Ping more frequently
+	addr, port := c.GetHub()
+	pingCh := make(chan struct{}, 10) // Buffer for ping requests
+	var currentConn net.Conn
+	var connMutex sync.Mutex
+
+	// Separate goroutine for sending pings
+	go func() {
+		for range pingCh {
+			connMutex.Lock()
+			// Try to reuse existing connection
+			if currentConn == nil {
+				dialer := net.Dialer{Timeout: 1 * time.Second}
+				conn, err := dialer.Dial("tcp4", fmt.Sprintf("%s:%d", addr, port))
+				if err != nil {
+					log.Printf("connection failed to %s: %v\n", addr, err)
+					connMutex.Unlock()
+					time.Sleep(time.Millisecond * 100) // Add delay before retry
+					continue
+				}
+				currentConn = conn
+			}
+
+			m := msg.NewPingMessage(name)
+
+			// Set write deadline
+			if err := currentConn.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
+				log.Printf("failed to set write deadline: %v\n", err)
+				currentConn.Close()
+				currentConn = nil
+				connMutex.Unlock()
+				continue
+			}
+
+			n, err := currentConn.Write(m.Serialize())
+			if err != nil {
+				log.Printf("write failed to %s: %v\n", addr, err)
+				currentConn.Close()
+				currentConn = nil
+				connMutex.Unlock()
+				continue
+			}
+			if n < len(m.Serialize()) {
+				log.Printf("incomplete write to %s: sent %d of %d bytes", addr, n, len(m.Serialize()))
+				currentConn.Close()
+				currentConn = nil
+				connMutex.Unlock()
+				continue
+			}
+			connMutex.Unlock()
+		}
+	}()
+
+	for {
+		select {
+		case <-t.C:
+			select {
+			case pingCh <- struct{}{}: // Non-blocking ping request
+			default:
+				log.Printf("Warning: ping channel full for %s", name)
+			}
+		}
 	}
-	return nil
 }

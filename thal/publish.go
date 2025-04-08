@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/markoxley/dani/msg"
@@ -17,12 +16,13 @@ import (
 const (
 	dialTimeout  = 5 * time.Second  // Maximum time to wait for TCP connection
 	writeTimeout = 10 * time.Second // Maximum time to wait for write operation
-	maxRetries   = 3               // Maximum number of retry attempts for failed sends
-	queueSize    = 1000            // Size of the message queue buffer
+	maxRetries   = 3                // Maximum number of retry attempts for failed sends
+	queueSize    = 50               // Size of the message queue buffer
 )
 
 var (
 	queue chan *msg.Message // Channel for queuing messages before sending
+	count = 0
 )
 
 // Init initializes the publisher with the specified hub address and port.
@@ -57,6 +57,7 @@ func Publish(topic string, data map[string]interface{}) error {
 	default:
 		return errors.New("queue full, message dropped")
 	}
+	time.Sleep(time.Millisecond * 10)
 	return nil
 }
 
@@ -65,24 +66,33 @@ func Publish(topic string, data map[string]interface{}) error {
 // WaitGroup to ensure proper cleanup. Each message is processed in its own goroutine,
 // but the function ensures all goroutines complete before returning.
 func run(addr string, port uint16) {
-	wg := sync.WaitGroup{}
+	//	wg := sync.WaitGroup{}
 	for msg := range queue {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			retry := 0
-			for retry < maxRetries {
-				err := send(msg, addr, port)
-				if err == nil {
-					return
-				}
-				log.Printf("Failed to send message: %v", err)
-				retry++
-			}
+		count--
+		//wg.Add(1)
+		//go func() {
+		//	defer wg.Done()
+		if err := attemptSend(msg, addr, port); err != nil {
 			log.Printf("Failed to send message after %d attempts", maxRetries)
-		}()
+		}
+		//}()
 	}
-	wg.Wait()
+	//fmt.Printf("Count=%d\n", count)
+}
+
+func attemptSend(msg *msg.Message, addr string, port uint16) error {
+	go func() {
+		retry := 0
+		for retry < maxRetries {
+			err := send(msg, addr, port)
+
+			if err == nil {
+				return
+			}
+			retry++
+		}
+	}()
+	return nil
 }
 
 // send attempts to deliver a single message to the specified address and port.

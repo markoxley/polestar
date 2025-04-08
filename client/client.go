@@ -5,16 +5,98 @@
 package client
 
 import (
+	"errors"
+	"fmt"
+	"log"
+	"net"
 	"strings"
 	"sync"
+	"time"
+)
+
+const (
+	// queueSize is the buffer size for the message queue channel.
+	// Messages beyond this limit will be dropped to prevent memory exhaustion.
+	queueSize = 100
+
+	// dialTimeout is the maximum time allowed for establishing a TCP connection.
+	// Connections that take longer will be aborted.
+	dialTimeout = 5 * time.Second
+
+	// writeTimeout is the maximum time allowed for writing data to a client.
+	// Writes that exceed this timeout will fail and may trigger retries.
+	writeTimeout = 10 * time.Second
 )
 
 // Client represents a connected client in the Thalamini system.
 // All fields are immutable after creation to ensure thread safety.
 type Client struct {
-	IP   string // Network address of the client (IPv4 or IPv6)
-	Port uint16 // TCP port the client is listening on
-	Name string // Unique identifier (stored in lowercase)
+	IP       string    // Network address of the client (IPv4 or IPv6)
+	Port     uint16    // TCP port the client is listening on
+	Name     string    // Unique identifier (stored in lowercase)
+	LastPing time.Time // Timestamp of the last ping received from this client
+	ch       chan []byte
+}
+
+func NewClient(ip string, port uint16, name string) *Client {
+	c := &Client{
+		IP:       ip,
+		Port:     port,
+		Name:     name,
+		LastPing: time.Now(),
+		ch:       make(chan []byte, queueSize),
+	}
+	c.Run()
+	return c
+}
+
+func (c *Client) Run() {
+	go func() {
+		for m := range c.ch {
+			time.Sleep(time.Millisecond * 10)
+			dialer := net.Dialer{Timeout: dialTimeout}
+			// Use JoinHostPort to properly handle IPv6 addresses
+			addr := net.JoinHostPort(c.IP, fmt.Sprintf("%d", c.Port))
+			client, err := dialer.Dial("tcp", addr)
+			if err != nil {
+				log.Printf("Failed to connect to %s: %v", addr, err)
+
+				continue
+			}
+			defer client.Close()
+
+			// Set write deadline
+			if err := client.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
+				log.Printf("Failed to set write deadline: %v", err)
+
+				continue
+			}
+
+			n, err := client.Write(m)
+			if err != nil {
+				log.Printf("Failed to write message: %v", err)
+				continue
+			}
+			if n < len(m) {
+				log.Printf("Failed to write message: incomplete write")
+				continue
+			}
+
+		}
+	}()
+}
+
+func (c *Client) Send(m []byte) {
+	select {
+	case c.ch <- m:
+		// ok
+	default:
+		// drop
+	}
+}
+
+func (c *Client) Stop() {
+	close(c.ch)
 }
 
 // Clients provides thread-safe management of connected clients.
@@ -23,7 +105,7 @@ type Client struct {
 // to lowercase.
 type Clients struct {
 	clients map[string]*Client // Map of lowercase name to Client
-	mutex   sync.Mutex        // Protects concurrent access
+	mutex   sync.Mutex         // Protects concurrent access
 }
 
 // New creates and returns a new Clients registry.
@@ -45,7 +127,7 @@ func New() *Clients {
 //
 // Parameters:
 //   - clients: Variable number of Client structs to register
-func (c *Clients) Add(clients ...Client) {
+func (c *Clients) Add(clients ...*Client) {
 	for _, client := range clients {
 		c.AddSingle(client)
 	}
@@ -58,11 +140,12 @@ func (c *Clients) Add(clients ...Client) {
 //
 // Parameters:
 //   - client: The Client struct to register
-func (c *Clients) AddSingle(client Client) {
+func (c *Clients) AddSingle(client *Client) {
 	client.Name = strings.ToLower(client.Name)
+	client.LastPing = time.Now()
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.clients[client.Name] = &client
+	c.clients[client.Name] = client
 }
 
 // Remove deregisters a client from the system.
@@ -75,6 +158,11 @@ func (c *Clients) Remove(name string) {
 	name = strings.ToLower(name)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	client, exists := c.clients[name]
+	if !exists {
+		return
+	}
+	client.Stop()
 	delete(c.clients, name)
 }
 
@@ -127,4 +215,57 @@ func (c *Clients) List() []*Client {
 		clients = append(clients, client)
 	}
 	return clients
+}
+
+// Ping updates the last seen timestamp for a client.
+// This is called when a ping message is received from the client
+// and is used to track client liveness.
+//
+// Parameters:
+//   - name: The name of the client to update
+//
+// Returns:
+//   - error: If the client is not found in the registry
+func (c *Clients) Ping(name string) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	client, exists := c.clients[strings.ToLower(name)]
+	if !exists {
+		return errors.New("client not found")
+	}
+	client.LastPing = time.Now()
+	return nil
+}
+
+// getExpired returns a list of client names that haven't sent
+// a ping in the last 2 minutes. These clients are considered
+// inactive and will be removed during cleanup.
+//
+// Returns:
+//   - []string: Names of expired clients
+func (c *Clients) getExpired(d time.Duration) []string {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	epoch := time.Now().Add(-d)
+	names := make([]string, 0, len(c.clients))
+	for _, client := range c.clients {
+		if epoch.After(client.LastPing) {
+			names = append(names, client.Name)
+		}
+	}
+	return names
+}
+
+// Cleanup removes all clients that haven't sent a ping
+// in the last 2 minutes. This prevents resource leaks from
+// clients that have disconnected without proper cleanup.
+func (c *Clients) Cleanup(d time.Duration) {
+	names := c.getExpired(d)
+	if len(names) == 0 {
+		return
+	}
+	log.Printf("Garbage collection cleaning %d clients\n", len(names))
+	for _, name := range names {
+		c.Remove(name)
+	}
 }
