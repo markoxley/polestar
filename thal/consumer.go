@@ -70,6 +70,7 @@ func Listen(name string, addr string, port uint16, c Consumer, topics ...string)
 	if err != nil {
 		return err
 	}
+	q := startQueue(c)
 	go ping(c, name)
 	go func() {
 		l, err := net.Listen("tcp", net.JoinHostPort(addr, fmt.Sprintf("%d", port)))
@@ -84,10 +85,20 @@ func Listen(name string, addr string, port uint16, c Consumer, topics ...string)
 				log.Printf("Error accepting connection: %v", err)
 				continue
 			}
-			handler(c, conn)
+			handler(c, conn, q)
 		}
 	}()
 	return nil
+}
+
+func startQueue(c Consumer) chan *msg.Message {
+	queueIn := make(chan *msg.Message, 1000)
+	go func() {
+		for msg := range queueIn {
+			c.Consume(msg)
+		}
+	}()
+	return queueIn
 }
 
 // handler processes incoming connections by reading the message data,
@@ -95,7 +106,7 @@ func Listen(name string, addr string, port uint16, c Consumer, topics ...string)
 // It automatically closes the connection when done. Uses a 1KB buffer
 // for reading messages, which should be sufficient for most use cases.
 // Any errors during message processing are logged but do not stop the handler.
-func handler(c Consumer, conn net.Conn) {
+func handler(c Consumer, conn net.Conn, queueIn chan *msg.Message) {
 	defer conn.Close()
 	buf := make([]byte, 1024)
 	n, err := conn.Read(buf)
@@ -108,7 +119,12 @@ func handler(c Consumer, conn net.Conn) {
 		log.Printf("Failed to deserialize message: %v", err)
 		return
 	}
-	c.Consume(m)
+	select {
+		case queueIn <- m:
+			//
+		default:
+			log.Printf("Queue full, discarding message")
+		}
 }
 
 // register sends a registration message to the hub to subscribe to the specified topics.

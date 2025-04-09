@@ -1,29 +1,6 @@
-// MIT License
-//
-// Copyright (c) 2025 DaggerTech
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
-// Package thal provides a robust pub/sub messaging system with queuing and retry capabilities.
-// It implements a non-blocking publisher with automatic retries and a bounded message queue.
-// The publisher component ensures reliable message delivery through TCP with configurable
-// timeouts and retry mechanisms, while maintaining backpressure through queue size limits.
+// Package thal provides message publishing capabilities for the Thalamini system.
+// It implements a non-blocking, buffered message queue with configurable retries
+// and timeouts for reliable message delivery.
 package thal
 
 import (
@@ -36,60 +13,68 @@ import (
 	"github.com/markoxley/dani/msg"
 )
 
-// Configuration constants for the publisher
+// Network communication constants
 const (
-	// dialTimeout defines the maximum time to wait for TCP connection establishment.
-	// Connections that exceed this timeout will fail and may trigger retries.
+	// dialTimeout specifies the maximum time allowed to establish
+	// a TCP connection to the hub server.
+	// Connections exceeding this timeout will be aborted.
 	dialTimeout = 5 * time.Second
 
-	// writeTimeout defines the maximum time to wait for a message write operation.
-	// Writes that exceed this timeout will fail and may trigger retries.
+	// writeTimeout defines the maximum duration for completing
+	// a message write operation to an established connection.
+	// Writes that take longer than this will result in an error.
 	writeTimeout = 10 * time.Second
 
-	// maxRetries defines the maximum number of retry attempts for failed sends.
-	// After this many failures, the message will be dropped from the queue.
+	// maxRetries sets the maximum number of delivery attempts
+	// for a single message before permanent failure.
+	// Messages will be dropped after exceeding this retry limit.
 	maxRetries = 3
 
-	// queueSize defines the size of the message queue buffer.
-	// When the queue is full, new publish attempts will fail immediately.
+	// queueSize determines the capacity of the internal message buffer.
+	// When the queue is full, new publish requests will be rejected immediately
+	// to prevent blocking the caller.
 	queueSize = 1000
 )
 
 var (
-	queue chan *msg.Message // Channel for queuing messages before sending
+	// queue acts as a buffered channel between message producers and the
+	// background sender goroutine. Uses FIFO ordering to preserve message order.
+	queue chan *msg.Message
+
+	// count tracks the number of unprocessed messages in the system
+	// for monitoring purposes (not used for core functionality).
 	count = 0
 )
 
-// Init initializes the publisher with the specified hub address and port.
-// It creates a buffered message queue and starts the background message processor.
-// The publisher uses a non-blocking design to handle backpressure by failing fast
-// when the queue is full rather than blocking the caller.
+// Init initializes the publishing subsystem and starts background processing.
+// It creates the message queue and launches a goroutine to handle message delivery.
 //
 // Parameters:
-//   - addr: The IP address or hostname of the hub
-//   - port: The TCP port number the hub is listening on
+//   - addr: IP address or hostname of the hub server
+//   - port: TCP port number of the hub server
 //
-// Returns an error if initialization fails. Once initialized, the publisher
-// will continue processing messages until the program exits.
-func Init(addr string, port uint16) error {
+// Concurrency:
+//   - Safe for concurrent calls but will reset existing configuration.
+//   - Starts a long-running goroutine for asynchronous message delivery.
+func Init(addr string, port uint16) {
 	queue = make(chan *msg.Message, queueSize)
 	go run(addr, port)
-	return nil
 }
 
-// Publish queues a message with the given topic and data for sending.
-// If the queue is full, it returns an error immediately instead of blocking.
-// The message will be processed asynchronously by the background worker.
-// This design ensures that slow consumers cannot block publishers.
+// Publish adds a message to the outgoing queue for asynchronous delivery.
+// Constructs a Thalamini message wrapper around the raw data and attempts to
+// enqueue it. If the queue is full, the publish operation will fail immediately.
 //
 // Parameters:
 //   - topic: The message topic for routing
 //   - data: Key-value pairs to be sent in the message
 //
-// Returns an error if:
-//   - The message queue is full (queue overflow)
-//   - The data cannot be serialized (invalid data)
-//   - The topic is empty or invalid
+// Returns:
+//   - error: nil on success, error when queue is full or message invalid
+//
+// Concurrency:
+//   - Safe for concurrent use from multiple goroutines.
+//   - Non-blocking - fails immediately if the queue is full.
 func Publish(topic string, data map[string]interface{}) error {
 	m := msg.NewMessage(topic)
 	if err := m.SetData(data); err != nil {
@@ -97,42 +82,48 @@ func Publish(topic string, data map[string]interface{}) error {
 	}
 	select {
 	case queue <- m:
-		// Successfully queued
+		return nil
 	default:
 		return errors.New("queue full, message dropped")
 	}
-	//time.Sleep(time.Millisecond * 10)
-	return nil
 }
 
-// run processes queued messages in the background, attempting to send each message
-// up to maxRetries times before giving up. It manages concurrent sends using a
-// WaitGroup to ensure proper cleanup. Each message is processed in its own goroutine,
-// but the function ensures all goroutines complete before returning.
+// run continuously processes messages from the queue until it is closed.
+// It implements the core message delivery loop with retry logic, ensuring
+// reliable delivery even in the face of transient network failures.
 //
-// The function implements a bounded retry mechanism with exponential backoff
-// to prevent overwhelming the network during outages.
+// Flow:
+//   1. Receive message from queue
+//   2. Attempt delivery through managed connection
+//   3. Retry failed messages according to the configured policy
+//   4. Log permanent delivery failures
+//
+// Note: This function runs in a dedicated goroutine started during initialization.
 func run(addr string, port uint16) {
-	//	wg := sync.WaitGroup{}
 	for msg := range queue {
 		count--
-		//wg.Add(1)
-		//go func() {
-		//	defer wg.Done()
 		if err := attemptSend(msg, addr, port); err != nil {
 			log.Printf("Failed to send message after %d attempts", maxRetries)
 		}
-		//}()
 	}
-	//fmt.Printf("Count=%d\n", count)
 }
 
+// attemptSend manages the retry logic for a single message delivery.
+// It spawns a goroutine to handle the actual network operations, allowing
+// the main delivery loop to continue processing messages without blocking.
+//
+// Parameters:
+//   - msg: Message to be delivered
+//   - addr: Target server address
+//   - port: Target server port
+//
+// Returns:
+//   - error: Final error after all retries are exhausted
 func attemptSend(msg *msg.Message, addr string, port uint16) error {
 	go func() {
 		retry := 0
 		for retry < maxRetries {
 			err := send(msg, addr, port)
-
 			if err == nil {
 				return
 			}
@@ -142,20 +133,24 @@ func attemptSend(msg *msg.Message, addr string, port uint16) error {
 	return nil
 }
 
-// send attempts to deliver a single message to the specified address and port.
-// It handles connection timeouts and partial writes, returning detailed errors
-// if the send fails. The message is serialized using the msg package's format.
+// send performs a single delivery attempt for a message.
+// It handles the full TCP connection lifecycle, including:
+// - DNS resolution
+// - TCP connection establishment
+// - Setting a write deadline
+// - Error classification
 //
 // Parameters:
-//   - m: The message to send
-//   - addr: Target IP address or hostname
+//   - m: Message to serialize and send
+//   - addr: Target hostname/IP address
 //   - port: Target TCP port
 //
-// Returns an error if:
-//   - Connection fails (network error)
-//   - Write times out (slow consumer)
-//   - Write is incomplete (connection dropped)
-//   - Message serialization fails
+// Returns:
+//   - error: Detailed error information including:
+//     - Connection failures
+//     - Write timeouts
+//     - Partial writes
+//     - Message serialization errors
 func send(m *msg.Message, addr string, port uint16) error {
 	dialer := net.Dialer{Timeout: dialTimeout}
 	client, err := dialer.Dial("tcp", net.JoinHostPort(addr, fmt.Sprintf("%d", port)))
@@ -164,7 +159,6 @@ func send(m *msg.Message, addr string, port uint16) error {
 	}
 	defer client.Close()
 
-	// Set write deadline
 	if err := client.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
 		return fmt.Errorf("failed to set write deadline: %v", err)
 	}

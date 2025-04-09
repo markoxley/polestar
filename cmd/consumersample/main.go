@@ -35,7 +35,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/markoxley/dani/msg"
@@ -46,8 +45,8 @@ import (
 // a channel-based message processing system. It demonstrates a pattern
 // for handling messages asynchronously while maintaining clean shutdown.
 type consumerSample struct {
-	quit bool                // Flag to signal shutdown
-	ch   chan *msg.Message  // Channel for passing messages to processor
+	count int
+	quit bool
 }
 
 // Consume implements the thal.Consumer interface. It receives messages
@@ -55,7 +54,16 @@ type consumerSample struct {
 // This method is called concurrently by the Thal system, so it must
 // be thread-safe.
 func (c *consumerSample) Consume(m *msg.Message) {
-	c.ch <- m
+	c.count++
+	d, err := m.Data()
+	if err != nil {
+		log.Printf("Failed to parse message: %v", err)
+		return
+	}
+	if q, ok := d["data"]; ok && q == "quit" {
+		fmt.Println("count", c.count)
+		c.quit = true
+	}
 }
 
 // Run processes messages from the channel until receiving a quit message.
@@ -64,22 +72,7 @@ func (c *consumerSample) Consume(m *msg.Message) {
 //   - Type assertion safety
 //   - Graceful shutdown on quit message
 //   - Continuous message processing
-func (c *consumerSample) Run() {
-	for m := range c.ch {
-		d, err := m.Data()
-		if err != nil {
-			log.Printf("error: %s", err)
-		}
-		fmt.Println(d)
-		data, ok := d["data"]
-		if !ok {
-			continue
-		}
-		if q, ok := data.(string); ok && q == "quit" {
-			os.Exit(0)
-		}
-	}
-}
+
 
 // GetHub implements the thal.Consumer interface by returning the
 // address and port of the Thalamini hub. This consumer connects
@@ -97,17 +90,12 @@ func (c *consumerSample) GetHub() (string, uint16) {
 // The consumer listens on localhost:8080 and connects to a
 // Thalamini hub at 127.0.0.1:24353.
 func main() {
-	c := &consumerSample{
-		ch: make(chan *msg.Message, 1000),
-	}
-
-	c.quit = false
+	c := &consumerSample{}
 	if err := thal.Listen("sample", "127.0.0.1", 8080, c, "test"); err != nil {
 		log.Panic(err)
 	}
 	fmt.Println("listening on 127.0.0.1:8080")
-	go c.Run()
 	for !c.quit {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 	}
 }

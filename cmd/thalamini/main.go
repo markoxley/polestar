@@ -138,6 +138,7 @@ func handleConnection(c net.Conn, hb *hub.HubQueue) {
 			ip := c.RemoteAddr().String()
 			ip = ip[:strings.Index(ip, ":")]
 			// Message complete, process it
+			// Create a HubMessage and store it in the hub.
 			err = hb.Store(hub.HubMessage{
 				IP:   ip,
 				Data: buffer,

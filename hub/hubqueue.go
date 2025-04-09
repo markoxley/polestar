@@ -53,12 +53,12 @@ const (
 	// queueSize is the buffer size for the message queue channel.
 	// Messages beyond this limit will be dropped to prevent memory exhaustion.
 	// This provides backpressure to publishers when the system is overloaded.
-	queueSize = 3000
+	queueSize = 1000000
 
 	// defaultWorkerCount is the default number of concurrent workers processing messages.
 	// This provides a balance between parallelism and system resource usage.
 	// Can be overridden using NewWithWorkers for specific use cases.
-	defaultWorkerCount = 20
+	defaultWorkerCount = 100
 
 	// dialTimeout is the maximum time allowed for establishing a TCP connection.
 	// Connections that take longer will be aborted. This prevents resource
@@ -198,17 +198,18 @@ func (h *HubQueue) Stop() {
 // Returns:
 //   - error: nil if queued successfully, or an error if the queue is full
 //
-// Thread Safety:
-//   - Safe for concurrent use by multiple goroutines
-//   - Non-blocking operation (fails fast if queue is full)
+// Example:
+//   err := hub.Store(hubMessage)
+//   if err != nil {
+//       log.Println("Queue full:", err)
+//   }
 func (h *HubQueue) Store(message HubMessage) error {
 	select {
 	case h.messageQueue <- message:
-		// Successfully queued
+		return nil
 	default:
-		return errors.New("queue full, message dropped")
+		return errors.New("queue full")
 	}
-	return nil
 }
 
 // garbageCollection runs a periodic cleanup of inactive clients.
@@ -220,13 +221,20 @@ func (h *HubQueue) Store(message HubMessage) error {
 // The cleanup process is thread-safe and runs concurrently with
 // normal message processing. Removed clients must re-register
 // to resume receiving messages.
+//
+// It iterates through the clients and checks the last time they sent a ping.
+// If a client hasn't sent a ping within the garbageTimer duration, it is removed.
 func (h *HubQueue) garbageCollection() {
-	tk := time.NewTicker(garbageTimer)
-	for {
-		select {
-		case <-tk.C:
-			h.clients.Cleanup(garbageTimer)
-		}
+	ticker := time.NewTicker(garbageTimer)
+	defer ticker.Stop()
+	for range ticker.C {
+		h.clients.Range(func(name string, c *client.Client) bool {
+			if time.Since(c.LastPing()) > garbageTimer {
+				log.Printf("Removing inactive client: %s\n", name)
+				h.clients.Delete(name)
+			}
+			return true
+		})
 	}
 }
 
@@ -264,6 +272,7 @@ func (h *HubQueue) workerRun(ch chan HubMessage) {
 			err = h.registerClient(hm.IP, m)
 		case msg.DataMsgByte:
 			h.processData(m.Topic, hm.Data)
+			time.Sleep(time.Millisecond)
 		default:
 			err = fmt.Errorf("unknown message type: %d", m.MsgType)
 		}
@@ -288,7 +297,6 @@ func (h *HubQueue) receivePing(m *msg.Message) error {
 		return errors.New("invalid ping message")
 	}
 	name := string(data)
-	log.Println("Ping")
 	return h.clients.Ping(name)
 }
 
@@ -338,25 +346,11 @@ func (h *HubQueue) registerClient(ip string, m *msg.Message) error {
 func (h *HubQueue) processData(topic string, data []byte) {
 	l := h.topics.GetClients(topic)
 	for _, client := range l {
-		//go func(name string, d []byte) {
 		c, ok := h.clients.Get(client)
 		if !ok {
 			return
 		}
 		c.Send(data)
-
-		// retry := 0
-		// for retry < maxRetries {
-		// 	err := h.sendData(c, data)
-		// 	if err == nil {
-		// 		return
-		// 	}
-		// 	log.Printf("Failed to send message to %s: %v", client, err)
-		// 	retry++
-		// 	time.Sleep(time.Millisecond)
-		// }
-		// log.Printf("Failed to send message to %s after %d attempts", client, maxRetries)
-		//}(client, data)
 	}
 }
 
