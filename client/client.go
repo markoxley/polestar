@@ -27,12 +27,9 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net"
-	"strings"
-	"sync"
 	"time"
 )
 

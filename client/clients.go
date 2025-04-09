@@ -28,12 +28,18 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	"log"
-	"net"
 	"strings"
 	"sync"
 	"time"
+)
+
+// garbageTimer defines how often to run cleanup of inactive clients.
+// Clients that haven't sent a ping within this duration are removed.
+// This prevents resource leaks from disconnected clients.
+const (
+	garbageTimer = time.Second * 30
+	garbageEpoch = time.Minute * 2
 )
 
 // Clients provides thread-safe management of connected clients.
@@ -54,9 +60,11 @@ type Clients struct {
 // Returns:
 //   - *Clients: A new, empty client registry
 func New() *Clients {
-	return &Clients{
+	c := &Clients{
 		clients: make(map[string]*Client),
 	}
+	c.beginGarbageCollector()
+	return c
 }
 
 // Add registers multiple new clients in the system.
@@ -229,18 +237,23 @@ func (c *Clients) getExpired(d time.Duration) []string {
 // Cleanup removes all clients that haven't sent a ping
 // in the last 2 minutes. This prevents resource leaks from
 // clients that have disconnected without proper cleanup.
-func (c *Clients) Cleanup(d time.Duration) {
-	// Get list of expired client names
-	names := c.getExpired(d)
-	if len(names) == 0 {
-		// No expired clients, return early
-		return
-	}
-	// Log cleanup message
-	log.Printf("Garbage collection cleaning %d clients\n", len(names))
-	// Iterate over expired client names
-	for _, name := range names {
-		// Remove client from registry
-		c.Remove(name)
-	}
+func (c *Clients) beginGarbageCollector() {
+	go func() {
+		ticker := time.NewTicker(garbageTimer)
+		defer ticker.Stop()
+		for range ticker.C {
+			names := c.getExpired(garbageEpoch)
+			if len(names) == 0 {
+				// No expired clients, return early
+				return
+			}
+			// Log cleanup message
+			log.Printf("Garbage collection cleaning %d clients\n", len(names))
+			// Iterate over expired client names
+			for _, name := range names {
+				// Remove client from registry
+				c.Remove(name)
+			}
+		}
+	}()
 }

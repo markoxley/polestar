@@ -74,11 +74,6 @@ const (
 	// After this many failures, the message will be dropped and logged.
 	// This prevents infinite retry loops for persistently failing clients.
 	maxRetries = 3
-
-	// garbageTimer defines how often to run cleanup of inactive clients.
-	// Clients that haven't sent a ping within this duration are removed.
-	// This prevents resource leaks from disconnected clients.
-	garbageTimer = time.Minute * 2
 )
 
 // HubQueue manages concurrent message processing with a buffered channel and worker pool.
@@ -98,9 +93,9 @@ const (
 type HubQueue struct {
 	messageQueue chan HubMessage // Channel for queuing messages to be processed
 	waitGroup    sync.WaitGroup  // WaitGroup for synchronizing worker goroutines
-	workerCount  int            // Number of workers to spawn
+	workerCount  int             // Number of workers to spawn
 	clients      *client.Clients // Thread-safe client registry
-	topics       *topic.Topic   // Topic subscription management
+	topics       *topic.Topic    // Topic subscription management
 }
 
 // New creates and returns a new Hub instance with the default worker count.
@@ -112,9 +107,10 @@ type HubQueue struct {
 //   - *HubQueue: A fully initialized hub ready for use
 //
 // Example:
-//   hub := New()
-//   hub.Run()
-//   defer hub.Stop()
+//
+//	hub := New()
+//	hub.Run()
+//	defer hub.Stop()
 func New() *HubQueue {
 	return NewWithWorkers(defaultWorkerCount)
 }
@@ -133,9 +129,10 @@ func New() *HubQueue {
 // If workers <= 0, the default worker count will be used.
 //
 // Example:
-//   hub := NewWithWorkers(50) // Create hub with 50 workers
-//   hub.Run()
-//   defer hub.Stop()
+//
+//	hub := NewWithWorkers(50) // Create hub with 50 workers
+//	hub.Run()
+//	defer hub.Stop()
 func NewWithWorkers(workers int) *HubQueue {
 	if workers <= 0 {
 		workers = defaultWorkerCount
@@ -148,7 +145,6 @@ func NewWithWorkers(workers int) *HubQueue {
 		clients:      c,
 		topics:       t,
 	}
-	go h.garbageCollection()
 	return h
 }
 
@@ -178,10 +174,10 @@ func (h *HubQueue) Run() {
 // tasks and cleaned up their resources.
 //
 // The shutdown sequence:
-//   1. Message queue is closed (no new messages accepted)
-//   2. Workers finish processing queued messages
-//   3. All goroutines are cleaned up
-//   4. Method returns when shutdown is complete
+//  1. Message queue is closed (no new messages accepted)
+//  2. Workers finish processing queued messages
+//  3. All goroutines are cleaned up
+//  4. Method returns when shutdown is complete
 func (h *HubQueue) Stop() {
 	close(h.messageQueue)
 	h.waitGroup.Wait()
@@ -199,42 +195,17 @@ func (h *HubQueue) Stop() {
 //   - error: nil if queued successfully, or an error if the queue is full
 //
 // Example:
-//   err := hub.Store(hubMessage)
-//   if err != nil {
-//       log.Println("Queue full:", err)
-//   }
+//
+//	err := hub.Store(hubMessage)
+//	if err != nil {
+//	    log.Println("Queue full:", err)
+//	}
 func (h *HubQueue) Store(message HubMessage) error {
 	select {
 	case h.messageQueue <- message:
 		return nil
 	default:
 		return errors.New("queue full")
-	}
-}
-
-// garbageCollection runs a periodic cleanup of inactive clients.
-// It runs every 2 minutes and removes any clients that haven't
-// sent a ping message within the last 2 minutes. This ensures
-// that the hub maintains an accurate list of active clients and
-// prevents resource leaks from disconnected clients.
-//
-// The cleanup process is thread-safe and runs concurrently with
-// normal message processing. Removed clients must re-register
-// to resume receiving messages.
-//
-// It iterates through the clients and checks the last time they sent a ping.
-// If a client hasn't sent a ping within the garbageTimer duration, it is removed.
-func (h *HubQueue) garbageCollection() {
-	ticker := time.NewTicker(garbageTimer)
-	defer ticker.Stop()
-	for range ticker.C {
-		h.clients.Range(func(name string, c *client.Client) bool {
-			if time.Since(c.LastPing()) > garbageTimer {
-				log.Printf("Removing inactive client: %s\n", name)
-				h.clients.Delete(name)
-			}
-			return true
-		})
 	}
 }
 

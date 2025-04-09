@@ -74,7 +74,7 @@ func main() {
 	defer l.Close()
 
 	hb.Run()
-	fmt.Printf("Thalamini started on %s:%d", config.IP, config.Port)
+	showStartup(config.IP, config.Port)
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -149,4 +149,18 @@ func handleConnection(c net.Conn, hb *hub.HubQueue) {
 			return
 		}
 	}
+}
+
+func showStartup(ip string, port uint16) {
+	w := 44
+	address := fmt.Sprintf("http://%s:%d", ip, port)
+	prefix := strings.Repeat(" ", (w-len(address))/2)
+	suffix := strings.Repeat(" ", w-(len(address)+len(prefix)))
+	address = prefix + address + suffix
+	fmt.Println("┌────────────────────────────────────────────┐")
+	fmt.Println("│                Thalamini Hub               │")
+	fmt.Println("│                                            │")
+	fmt.Printf("│%s│\n", address)
+	fmt.Println("└────────────────────────────────────────────┘")
+
 }
