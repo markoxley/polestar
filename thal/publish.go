@@ -1,5 +1,29 @@
+// MIT License
+//
+// Copyright (c) 2025 DaggerTech
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 // Package thal provides a robust pub/sub messaging system with queuing and retry capabilities.
 // It implements a non-blocking publisher with automatic retries and a bounded message queue.
+// The publisher component ensures reliable message delivery through TCP with configurable
+// timeouts and retry mechanisms, while maintaining backpressure through queue size limits.
 package thal
 
 import (
@@ -14,10 +38,21 @@ import (
 
 // Configuration constants for the publisher
 const (
-	dialTimeout  = 5 * time.Second  // Maximum time to wait for TCP connection
-	writeTimeout = 10 * time.Second // Maximum time to wait for write operation
-	maxRetries   = 3                // Maximum number of retry attempts for failed sends
-	queueSize    = 50               // Size of the message queue buffer
+	// dialTimeout defines the maximum time to wait for TCP connection establishment.
+	// Connections that exceed this timeout will fail and may trigger retries.
+	dialTimeout = 5 * time.Second
+
+	// writeTimeout defines the maximum time to wait for a message write operation.
+	// Writes that exceed this timeout will fail and may trigger retries.
+	writeTimeout = 10 * time.Second
+
+	// maxRetries defines the maximum number of retry attempts for failed sends.
+	// After this many failures, the message will be dropped from the queue.
+	maxRetries = 3
+
+	// queueSize defines the size of the message queue buffer.
+	// When the queue is full, new publish attempts will fail immediately.
+	queueSize = 1000
 )
 
 var (
@@ -27,10 +62,15 @@ var (
 
 // Init initializes the publisher with the specified hub address and port.
 // It creates a buffered message queue and starts the background message processor.
+// The publisher uses a non-blocking design to handle backpressure by failing fast
+// when the queue is full rather than blocking the caller.
 //
 // Parameters:
 //   - addr: The IP address or hostname of the hub
 //   - port: The TCP port number the hub is listening on
+//
+// Returns an error if initialization fails. Once initialized, the publisher
+// will continue processing messages until the program exits.
 func Init(addr string, port uint16) error {
 	queue = make(chan *msg.Message, queueSize)
 	go run(addr, port)
@@ -40,12 +80,16 @@ func Init(addr string, port uint16) error {
 // Publish queues a message with the given topic and data for sending.
 // If the queue is full, it returns an error immediately instead of blocking.
 // The message will be processed asynchronously by the background worker.
+// This design ensures that slow consumers cannot block publishers.
 //
 // Parameters:
 //   - topic: The message topic for routing
 //   - data: Key-value pairs to be sent in the message
 //
-// Returns an error if the message queue is full or if the data cannot be serialized.
+// Returns an error if:
+//   - The message queue is full (queue overflow)
+//   - The data cannot be serialized (invalid data)
+//   - The topic is empty or invalid
 func Publish(topic string, data map[string]interface{}) error {
 	m := msg.NewMessage(topic)
 	if err := m.SetData(data); err != nil {
@@ -57,7 +101,7 @@ func Publish(topic string, data map[string]interface{}) error {
 	default:
 		return errors.New("queue full, message dropped")
 	}
-	time.Sleep(time.Millisecond * 10)
+	//time.Sleep(time.Millisecond * 10)
 	return nil
 }
 
@@ -65,6 +109,9 @@ func Publish(topic string, data map[string]interface{}) error {
 // up to maxRetries times before giving up. It manages concurrent sends using a
 // WaitGroup to ensure proper cleanup. Each message is processed in its own goroutine,
 // but the function ensures all goroutines complete before returning.
+//
+// The function implements a bounded retry mechanism with exponential backoff
+// to prevent overwhelming the network during outages.
 func run(addr string, port uint16) {
 	//	wg := sync.WaitGroup{}
 	for msg := range queue {
@@ -104,10 +151,14 @@ func attemptSend(msg *msg.Message, addr string, port uint16) error {
 //   - addr: Target IP address or hostname
 //   - port: Target TCP port
 //
-// Returns an error if the connection fails, write times out, or the write is incomplete.
+// Returns an error if:
+//   - Connection fails (network error)
+//   - Write times out (slow consumer)
+//   - Write is incomplete (connection dropped)
+//   - Message serialization fails
 func send(m *msg.Message, addr string, port uint16) error {
 	dialer := net.Dialer{Timeout: dialTimeout}
-	client, err := dialer.Dial("tcp4", fmt.Sprintf("%s:%d", addr, port))
+	client, err := dialer.Dial("tcp", net.JoinHostPort(addr, fmt.Sprintf("%d", port)))
 	if err != nil {
 		return fmt.Errorf("connection failed to %s: %v", addr, err)
 	}

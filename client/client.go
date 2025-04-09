@@ -1,3 +1,25 @@
+// MIT License
+//
+// Copyright (c) 2025 DaggerTech
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 // Package client provides thread-safe client management for the Thalamini system.
 // It implements a registry for tracking connected clients with case-insensitive
 // lookups and concurrent access support. The package is designed to be used as
@@ -17,7 +39,7 @@ import (
 const (
 	// queueSize is the buffer size for the message queue channel.
 	// Messages beyond this limit will be dropped to prevent memory exhaustion.
-	queueSize = 100
+	queueSize = 1000
 
 	// dialTimeout is the maximum time allowed for establishing a TCP connection.
 	// Connections that take longer will be aborted.
@@ -53,7 +75,7 @@ func NewClient(ip string, port uint16, name string) *Client {
 func (c *Client) Run() {
 	go func() {
 		for m := range c.ch {
-			time.Sleep(time.Millisecond * 10)
+			//time.Sleep(time.Millisecond * 10)
 			dialer := net.Dialer{Timeout: dialTimeout}
 			// Use JoinHostPort to properly handle IPv6 addresses
 			addr := net.JoinHostPort(c.IP, fmt.Sprintf("%d", c.Port))
