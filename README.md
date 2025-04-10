@@ -2,6 +2,8 @@
 
 A high-performance message routing system written in Go that provides reliable message delivery through a publish-subscribe (pub/sub) pattern with topic-based routing. Measured performance of over 10,000 messages/second with 0.06ms average latency.
 
+> **Note**: This application is designed for Linux systems only. Due to differences in socket communication handling on Windows, the application may experience issues when run on Windows systems.
+
 ## Features
 
 - High-throughput message processing (>10,000 msg/sec)
