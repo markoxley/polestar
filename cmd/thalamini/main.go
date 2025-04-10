@@ -41,11 +41,11 @@ import (
 const (
 	// bufferSize defines the size of the read buffer for incoming connections.
 	// This value provides a balance between memory usage and read efficiency.
-	bufferSize = 1024
+	bufferSize = 2048
 
 	// maxMessageSize defines the maximum allowed size for a single message (10MB).
 	// Messages exceeding this size will be rejected to prevent memory exhaustion.
-	maxMessageSize = 10 * 1024 * 1024
+	maxMessageSize = 10 * 2048 * 2048
 )
 
 // main initializes and runs the Thalamini hub server.
@@ -145,6 +145,7 @@ func handleConnection(c net.Conn, hb *hub.HubQueue, config *config.Config) {
 			}
 			return
 		}
+
 	}
 }
 

@@ -356,3 +356,24 @@ func (m *Message) generateChecksum(data []byte) byte {
 	}
 	return checksum
 }
+
+func Split(data []byte) []*Message {
+	res := make([]*Message, 0)
+	for len(data) > 0 {
+		if len(data) < 10 {
+			break
+		}
+		m := &Message{}
+		l := int(data[2]) | int(data[3])<<8
+		if l > len(data) {
+			break
+		}
+		err := m.Deserialize(data[:l])
+		if err != nil {
+			break
+		}
+		res = append(res, m)
+		data = data[l:]
+	}
+	return res
+}

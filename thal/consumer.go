@@ -154,7 +154,7 @@ func Listen(c Consumer, config *ConsumerConfig) error {
 				log.Printf("Error accepting connection: %v", err)
 				continue
 			}
-			handler(c, conn, q)
+			go handler(c, conn, q)
 		}
 	}()
 	return nil
@@ -189,21 +189,25 @@ func startQueue(c Consumer, config *ConsumerConfig) chan *msg.Message {
 func handler(c Consumer, conn net.Conn, queueIn chan *msg.Message) {
 	defer conn.Close()
 	buf := make([]byte, 1024)
-	n, err := conn.Read(buf)
-	if err != nil {
-		return
+	data := make([]byte, 0)
+	for {
+		n, err := conn.Read(buf)
+		if err != nil {
+			return
+		}
+		data = append(data, buf[:n]...)
+		if n < 1024 {
+			break
+		}
 	}
-	m := &msg.Message{}
-	err = m.Deserialize(buf[:n])
-	if err != nil {
-		log.Printf("Failed to deserialize message: %v", err)
-		return
-	}
-	select {
-	case queueIn <- m:
-		//
-	default:
-		log.Printf("Queue full, discarding message")
+	msgs := msg.Split(data)
+	for _, m := range msgs {
+		select {
+		case queueIn <- m:
+			//
+		default:
+			log.Printf("Queue full, discarding message")
+		}
 	}
 }
 

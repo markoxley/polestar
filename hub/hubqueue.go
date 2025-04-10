@@ -178,6 +178,7 @@ func (h *HubQueue) Store(message HubMessage) error {
 //   - Client errors are isolated
 func (h *HubQueue) workerRun(ch chan HubMessage) {
 	for hm := range ch {
+
 		m := &msg.Message{}
 		err := m.Deserialize(hm.Data)
 		if err != nil {

@@ -20,9 +20,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Package config provides configuration management for the Thalamini messaging system.
-// It handles loading and validating server and client settings from a JSON configuration file.
-// The package supports both required and optional configuration parameters with sensible defaults.
+// Package config provides configuration management for the Thalamini hub system.
+// It handles loading and validation of configuration parameters with sensible defaults
+// optimized for high-throughput message processing (>10,000 msg/sec).
 package config
 
 import (
@@ -30,17 +30,19 @@ import (
 	"os"
 )
 
-// Config holds the server configuration settings loaded from config.json.
-// It defines network settings, performance tuning parameters, and timeout values
-// for both the Thalamini hub server and its clients.
+// Config defines the operational parameters for the Thalamini hub.
+// Default values are optimized for high-throughput scenarios:
+// - Queue Size: 1,000,000 messages for handling >10,000 msg/sec
+// - Worker Count: 100 concurrent workers for parallel processing
+// - Timeouts: Optimized for ~0.06ms average latency
 type Config struct {
 	IP                 string `json:"ip"`                 // IP address to bind the server to (e.g., "0.0.0.0" for all interfaces)
 	Port               uint16 `json:"port"`               // Port number to listen on (e.g., 24353)
-	QueueSize          int    `json:"queueSize"`          // Size of the message queue buffer (default: 1,000,000)
-	WorkerCount        int    `json:"workerCount"`        // Number of concurrent message processing workers (default: 100)
-	DialTimeout        int    `json:"dialTimeout"`        // TCP connection timeout in milliseconds (default: 1000)
-	WriteTimeout       int    `json:"writeTimeout"`       // Message write timeout in milliseconds (default: 2000)
-	ReadTimeout        int    `json:"readTimeout"`        // Message read timeout in milliseconds (default: 30000)
+	QueueSize          int    `json:"queueSize"`          // Size of message buffer (default: 1,000,000)
+	WorkerCount        int    `json:"workerCount"`        // Number of concurrent workers (default: 100)
+	DialTimeout        int    `json:"dialTimeout"`        // TCP connection timeout in ms (default: 1000)
+	WriteTimeout       int    `json:"writeTimeout"`       // Message write timeout in ms (default: 2000)
+	ReadTimeout        int    `json:"readTimeout"`        // Message read timeout in ms (default: 30000)
 	MaxRetries         int    `json:"maxRetries"`         // Maximum message delivery attempts (default: 3)
 	ClientQueueSize    int    `json:"clientQueueSize"`    // Size of each client's message queue (default: 1000)
 	ClientWorkerCount  int    `json:"clientWorkerCount"`  // Workers per client for message processing (default: 100)
@@ -49,12 +51,16 @@ type Config struct {
 	ClientMaxRetries   int    `json:"clientMaxRetries"`   // Maximum client delivery attempts (default: 3)
 }
 
-// Load reads and parses the config.json file into a Config struct.
-// It applies default values for any missing optional parameters
-// and validates that all required parameters are present.
+// Load reads and parses the configuration file, applying performance-optimized
+// defaults if values are not specified. The configuration file must be in the
+// current working directory and must be named "config.json".
 //
-// The configuration file must be in the current working directory
-// and must be named "config.json".
+// Default values are tuned for high-throughput scenarios:
+// - QueueSize: 1,000,000 messages to handle >10,000 msg/sec throughput
+// - WorkerCount: 100 workers for optimal parallel processing
+// - DialTimeout: 1000ms for connection establishment
+// - WriteTimeout: 2000ms for message transmission
+// - ReadTimeout: 30000ms for long-polling operations
 //
 // Returns:
 //   - *Config: A fully initialized configuration with defaults applied

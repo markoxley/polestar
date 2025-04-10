@@ -47,7 +47,7 @@ import (
 	"github.com/markoxley/dani/thal"
 )
 
-const msgCount = 100000 // Number of messages to send in the test
+const msgCount = 1000000 // Number of messages to send in the test
 
 // main demonstrates a high-performance publisher that sends messages
 // to the "test" topic with configurable rate limiting. It measures
@@ -69,7 +69,7 @@ func main() {
 	cfg := &thal.PublishConfig{
 		Address:      "127.0.0.1",
 		Port:         24353,
-		QueueSize:    1000,
+		QueueSize:    1000000,
 		DialTimeout:  1000,
 		WriteTimeout: 2000,
 		MaxRetries:   3,
@@ -82,7 +82,10 @@ func main() {
 		t := time.Now().UnixNano()
 		d := msg.MessageData{"data": fmt.Sprintf("message-%d", i), "time": t}
 		thal.Publish("test", d)
-		time.Sleep(time.Millisecond * 1) // Rate limiting
+		if (i+1)%1000 == 0 {
+			fmt.Println("Published", (i + 1), "messages")
+		}
+		time.Sleep(time.Microsecond * 10) // Rate limiting
 	}
 
 	// Calculate and display performance metrics
@@ -93,9 +96,9 @@ func main() {
 	fmt.Printf("Average time per message: %.2f ms\n", float64(du.Milliseconds())/float64(msgCount))
 
 	// Wait briefly to ensure all messages are delivered
-	time.Sleep(time.Second * 5)
+	//time.Sleep(time.Second * 5)
 
 	// Send quit message to signal consumers to shut down
-	thal.Publish("test", msg.MessageData{"data": "quit"})
-	time.Sleep(time.Second * 5)
+	//thal.Publish("test", msg.MessageData{"data": "quit"})
+	select {}
 }

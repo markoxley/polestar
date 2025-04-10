@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>README.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="thalamini-hub">Thalamini Hub</h1>
+<p>A high-performance message routing system written in Go that provides reliable message delivery through a publish-subscribe (pub/sub) pattern with topic-based routing. Measured performance of ~840 messages/second with 1.19ms average latency.</p>
+<h2 id="features">Features</h2>
+<ul>
+<li>High-throughput message processing (~840 msg/sec)</li>
+<li>Low latency message delivery (~1.19ms per message)</li>
+<li>Configurable message queues with backpressure handling</li>
+<li>Topic-based message routing with pattern matching</li>
+<li>Automatic client health monitoring (15s ping interval)</li>
+<li>Thread-safe concurrent operations</li>
+<li>TCP-based communication with connection pooling</li>
+<li>Automatic recovery and reconnection</li>
+<li>JSON-based configuration</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<pre class="hljs"><code><div>go get github.com/markoxley/hub
+</div></code></pre>
+<h2 id="quick-start">Quick Start</h2>
+<p>The Thalamini system consists of a central hub server that handles message routing, and client libraries for publishing and consuming messages. This guide focuses on implementing publishers and consumers using the client libraries.</p>
+<h3 id="publishing-messages">Publishing Messages</h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">package</span> main
+
+<span class="hljs-keyword">import</span> (
+    <span class="hljs-string">"log"</span>
+    <span class="hljs-string">"time"</span>
+    
+    <span class="hljs-string">"github.com/markoxley/dani/msg"</span>
+    <span class="hljs-string">"github.com/markoxley/dani/thal"</span>
+)
+
+<span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-title">main</span><span class="hljs-params">()</span></span> {
+    <span class="hljs-comment">// Configure the publisher</span>
+    cfg := &amp;thal.PublishConfig{
+        Address:      <span class="hljs-string">"127.0.0.1"</span>,  <span class="hljs-comment">// Thalamini hub address</span>
+        Port:        <span class="hljs-number">24353</span>,         <span class="hljs-comment">// Thalamini hub port</span>
+        QueueSize:   <span class="hljs-number">1000</span>,
+        DialTimeout: <span class="hljs-number">1000</span>,  <span class="hljs-comment">// milliseconds</span>
+        MaxRetries:  <span class="hljs-number">3</span>,
+    }
+    
+    <span class="hljs-comment">// Initialize the publisher</span>
+    <span class="hljs-keyword">if</span> err := thal.Init(cfg); err != <span class="hljs-literal">nil</span> {
+        log.Fatal(err)
+    }
+    
+    <span class="hljs-comment">// Prepare message data</span>
+    data := <span class="hljs-keyword">map</span>[<span class="hljs-keyword">string</span>]<span class="hljs-keyword">interface</span>{}{
+        <span class="hljs-string">"message"</span>: <span class="hljs-string">"Hello, World!"</span>,
+        <span class="hljs-string">"timestamp"</span>: time.Now(),
+        <span class="hljs-string">"priority"</span>: <span class="hljs-number">1</span>,
+    }
+    
+    <span class="hljs-comment">// Publish a message to a specific topic</span>
+    err := thal.Publish(<span class="hljs-string">"notifications"</span>, data)
+    <span class="hljs-keyword">if</span> err != <span class="hljs-literal">nil</span> {
+        log.Printf(<span class="hljs-string">"Failed to publish: %v"</span>, err)
+    }
+}
+</div></code></pre>
+<h3 id="consuming-messages">Consuming Messages</h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">package</span> main
+
+<span class="hljs-keyword">import</span> (
+    <span class="hljs-string">"log"</span>
+    <span class="hljs-string">"fmt"</span>
+    
+    <span class="hljs-string">"github.com/markoxley/dani/msg"</span>
+    <span class="hljs-string">"github.com/markoxley/dani/thal"</span>
+)
+
+<span class="hljs-comment">// MyConsumer implements the thal.Consumer interface</span>
+<span class="hljs-keyword">type</span> MyConsumer <span class="hljs-keyword">struct</span>{}
+
+<span class="hljs-comment">// Consume processes received messages</span>
+<span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-params">(c *MyConsumer)</span> <span class="hljs-title">Consume</span><span class="hljs-params">(m *msg.Message)</span></span> {
+    data, err := m.Data()
+    <span class="hljs-keyword">if</span> err != <span class="hljs-literal">nil</span> {
+        log.Printf(<span class="hljs-string">"Failed to parse message: %v"</span>, err)
+        <span class="hljs-keyword">return</span>
+    }
+    log.Printf(<span class="hljs-string">"Received message: %v"</span>, data)
+}
+
+<span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-title">main</span><span class="hljs-params">()</span></span> {
+    <span class="hljs-comment">// Configure the consumer</span>
+    cfg := &amp;thal.ConsumerConfig{
+        Name:         <span class="hljs-string">"myclient"</span>,
+        HubAddress:   <span class="hljs-string">"127.0.0.1"</span>,
+        HubPort:      <span class="hljs-number">24353</span>,
+        Address:      <span class="hljs-string">"0.0.0.0"</span>,
+        Port:         <span class="hljs-number">8080</span>,
+        QueueSize:    <span class="hljs-number">1000</span>,
+        DialTimeout:  <span class="hljs-number">1000</span>,  <span class="hljs-comment">// milliseconds</span>
+        MaxRetries:   <span class="hljs-number">3</span>,
+        Topics:       []<span class="hljs-keyword">string</span>{<span class="hljs-string">"topic1"</span>, <span class="hljs-string">"topic2"</span>},
+    }
+    
+    <span class="hljs-comment">// Create consumer and start listening</span>
+    consumer := &amp;MyConsumer{}
+    err := thal.Listen(consumer, cfg)
+    <span class="hljs-keyword">if</span> err != <span class="hljs-literal">nil</span> {
+        log.Fatalf(<span class="hljs-string">"Failed to start consumer: %v"</span>, err)
+    }
+    
+    <span class="hljs-comment">// Keep the main thread running</span>
+    <span class="hljs-keyword">select</span> {}
+}
+</div></code></pre>
+<h2 id="configuration">Configuration</h2>
+<p>The system uses JSON-based configuration for all components. Configuration files support environment variable expansion.</p>
+<h3 id="hub-configuration">Hub Configuration</h3>
+<p>The Thalamini hub server is configured via a <code>config.json</code> file. Here's an example configuration with default values:</p>
+<pre class="hljs"><code><div>{
+    <span class="hljs-attr">"ip"</span>: <span class="hljs-string">"0.0.0.0"</span>,
+    <span class="hljs-attr">"port"</span>: <span class="hljs-number">24353</span>,
+    <span class="hljs-attr">"queueSize"</span>: <span class="hljs-number">1000000</span>,
+    <span class="hljs-attr">"workerCount"</span>: <span class="hljs-number">100</span>,
+    <span class="hljs-attr">"dialTimeout"</span>: <span class="hljs-number">1000</span>,
+    <span class="hljs-attr">"writeTimeout"</span>: <span class="hljs-number">2000</span>,
+    <span class="hljs-attr">"readTimeout"</span>: <span class="hljs-number">30000</span>,
+    <span class="hljs-attr">"maxRetries"</span>: <span class="hljs-number">3</span>,
+    <span class="hljs-attr">"clientQueueSize"</span>: <span class="hljs-number">1000</span>,
+    <span class="hljs-attr">"clientWorkerCount"</span>: <span class="hljs-number">100</span>,
+    <span class="hljs-attr">"clientDialTimeout"</span>: <span class="hljs-number">1000</span>,
+    <span class="hljs-attr">"clientWriteTimeout"</span>: <span class="hljs-number">2000</span>,
+    <span class="hljs-attr">"clientMaxRetries"</span>: <span class="hljs-number">3</span>
+}
+</div></code></pre>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ip</td>
+<td>IP address to bind the server to</td>
+<td>&quot;0.0.0.0&quot;</td>
+</tr>
+<tr>
+<td>port</td>
+<td>Port number to listen on</td>
+<td>24353</td>
+</tr>
+<tr>
+<td>queueSize</td>
+<td>Size of the message queue buffer</td>
+<td>1,000,000</td>
+</tr>
+<tr>
+<td>workerCount</td>
+<td>Number of concurrent message processing workers</td>
+<td>100</td>
+</tr>
+<tr>
+<td>dialTimeout</td>
+<td>TCP connection timeout (ms)</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>writeTimeout</td>
+<td>Message write timeout (ms)</td>
+<td>2000</td>
+</tr>
+<tr>
+<td>readTimeout</td>
+<td>Message read timeout (ms)</td>
+<td>30000</td>
+</tr>
+<tr>
+<td>maxRetries</td>
+<td>Maximum message delivery attempts</td>
+<td>3</td>
+</tr>
+<tr>
+<td>clientQueueSize</td>
+<td>Size of each client's message queue</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>clientWorkerCount</td>
+<td>Workers per client for message processing</td>
+<td>100</td>
+</tr>
+<tr>
+<td>clientDialTimeout</td>
+<td>Client TCP connection timeout (ms)</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>clientWriteTimeout</td>
+<td>Client message write timeout (ms)</td>
+<td>2000</td>
+</tr>
+<tr>
+<td>clientMaxRetries</td>
+<td>Maximum client delivery attempts</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<h3 id="publisher-configuration">Publisher Configuration</h3>
+<pre class="hljs"><code><div>{
+    <span class="hljs-attr">"address"</span>: <span class="hljs-string">"127.0.0.1"</span>,
+    <span class="hljs-attr">"port"</span>: <span class="hljs-number">24353</span>,
+    <span class="hljs-attr">"queueSize"</span>: <span class="hljs-number">1000</span>,
+    <span class="hljs-attr">"dialTimeout"</span>: <span class="hljs-number">1000</span>,
+    <span class="hljs-attr">"writeTimeout"</span>: <span class="hljs-number">2000</span>,
+    <span class="hljs-attr">"maxRetries"</span>: <span class="hljs-number">3</span>
+}
+</div></code></pre>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>address</td>
+<td>Hub server address</td>
+<td>&quot;127.0.0.1&quot;</td>
+</tr>
+<tr>
+<td>port</td>
+<td>Hub server port</td>
+<td>24353</td>
+</tr>
+<tr>
+<td>queueSize</td>
+<td>Message buffer size</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>dialTimeout</td>
+<td>Connection timeout (ms)</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>writeTimeout</td>
+<td>Message write timeout (ms)</td>
+<td>2000</td>
+</tr>
+<tr>
+<td>maxRetries</td>
+<td>Failed message retry limit</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<h3 id="consumer-configuration">Consumer Configuration</h3>
+<pre class="hljs"><code><div>{
+    <span class="hljs-attr">"name"</span>: <span class="hljs-string">"myconsumer"</span>,
+    <span class="hljs-attr">"hubAddress"</span>: <span class="hljs-string">"127.0.0.1"</span>,
+    <span class="hljs-attr">"hubPort"</span>: <span class="hljs-number">24353</span>,
+    <span class="hljs-attr">"address"</span>: <span class="hljs-string">"0.0.0.0"</span>,
+    <span class="hljs-attr">"port"</span>: <span class="hljs-number">8080</span>,
+    <span class="hljs-attr">"queueSize"</span>: <span class="hljs-number">1000</span>,
+    <span class="hljs-attr">"dialTimeout"</span>: <span class="hljs-number">1000</span>,
+    <span class="hljs-attr">"writeTimeout"</span>: <span class="hljs-number">2000</span>,
+    <span class="hljs-attr">"maxRetries"</span>: <span class="hljs-number">3</span>,
+    <span class="hljs-attr">"topics"</span>: [<span class="hljs-string">"topic1"</span>, <span class="hljs-string">"topic2"</span>]
+}
+</div></code></pre>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name</td>
+<td>Unique consumer identifier</td>
+<td>required</td>
+</tr>
+<tr>
+<td>hubAddress</td>
+<td>Hub server address</td>
+<td>&quot;127.0.0.1&quot;</td>
+</tr>
+<tr>
+<td>hubPort</td>
+<td>Hub server port</td>
+<td>24353</td>
+</tr>
+<tr>
+<td>address</td>
+<td>Local binding address</td>
+<td>&quot;0.0.0.0&quot;</td>
+</tr>
+<tr>
+<td>port</td>
+<td>Local binding port</td>
+<td>required</td>
+</tr>
+<tr>
+<td>queueSize</td>
+<td>Message buffer size</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>dialTimeout</td>
+<td>Connection timeout (ms)</td>
+<td>1000</td>
+</tr>
+<tr>
+<td>writeTimeout</td>
+<td>Message write timeout (ms)</td>
+<td>2000</td>
+</tr>
+<tr>
+<td>maxRetries</td>
+<td>Failed operation retry limit</td>
+<td>3</td>
+</tr>
+<tr>
+<td>topics</td>
+<td>Topics to subscribe to</td>
+<td>required</td>
+</tr>
+</tbody>
+</table>
+<h2 id="performance-characteristics">Performance Characteristics</h2>
+<p>Based on performance testing:</p>
+<ul>
+<li><strong>Throughput</strong>: ~840 messages/second</li>
+<li><strong>Latency</strong>: ~1.19ms average per message</li>
+<li><strong>Queue Size</strong>: 1000 messages default</li>
+<li><strong>Worker Pool</strong>: 10 workers default</li>
+<li><strong>Health Check</strong>: 15-second ping interval</li>
+<li><strong>Connection Pool</strong>: Dynamic with automatic cleanup</li>
+<li><strong>Memory Usage</strong>: ~1KB per queued message</li>
+<li><strong>Recovery</strong>: Automatic with exponential backoff</li>
+</ul>
+<h2 id="architecture">Architecture</h2>
+<p>The system consists of three main components:</p>
+<ol>
+<li>
+<p><strong>Hub</strong>: Central message router that manages connections and message delivery</p>
+<ul>
+<li>Worker pool for concurrent message processing</li>
+<li>Bounded message queue with backpressure</li>
+<li>Client health monitoring</li>
+<li>Topic-based routing</li>
+</ul>
+</li>
+<li>
+<p><strong>Publisher</strong>: Client that sends messages to the hub</p>
+<ul>
+<li>Asynchronous message queuing</li>
+<li>Automatic retries with backoff</li>
+<li>Connection pooling</li>
+<li>Rate limiting support</li>
+</ul>
+</li>
+<li>
+<p><strong>Consumer</strong>: Client that receives messages from topics</p>
+<ul>
+<li>Buffered message processing</li>
+<li>Automatic reconnection</li>
+<li>Health monitoring</li>
+<li>Topic pattern matching</li>
+</ul>
+</li>
+</ol>
+<h3 id="message-flow">Message Flow</h3>
+<ol>
+<li>Publishers send messages to the hub</li>
+<li>Messages are queued in bounded buffers</li>
+<li>Worker pool processes messages concurrently</li>
+<li>Messages are routed to subscribed consumers</li>
+<li>Failed deliveries are retried automatically</li>
+<li>Health is monitored via ping messages</li>
+</ol>
+<h2 id="thread-safety">Thread Safety</h2>
+<p>All operations are thread-safe and support concurrent access:</p>
+<ul>
+<li>Mutex protection for shared resources</li>
+<li>Channel-based message passing</li>
+<li>Atomic operations for counters</li>
+<li>Connection pooling for network I/O</li>
+<li>Goroutine confinement for state</li>
+</ul>
+<h2 id="best-practices">Best Practices</h2>
+<ol>
+<li>
+<p><strong>Configuration</strong>:</p>
+<ul>
+<li>Use JSON configuration files</li>
+<li>Set appropriate queue sizes for your load</li>
+<li>Configure timeouts based on network conditions</li>
+<li>Adjust worker count for your hardware</li>
+</ul>
+</li>
+<li>
+<p><strong>Performance</strong>:</p>
+<ul>
+<li>Monitor queue lengths for backpressure</li>
+<li>Set appropriate rate limits</li>
+<li>Use topic patterns effectively</li>
+<li>Configure retry counts based on reliability needs</li>
+</ul>
+</li>
+<li>
+<p><strong>Error Handling</strong>:</p>
+<ul>
+<li>Check all error returns</li>
+<li>Implement graceful shutdown</li>
+<li>Monitor health check failures</li>
+<li>Log connection issues</li>
+</ul>
+</li>
+<li>
+<p><strong>Topic Design</strong>:</p>
+<ul>
+<li>Use hierarchical topics</li>
+<li>Keep topic names concise</li>
+<li>Document topic patterns</li>
+<li>Consider message routing paths</li>
+</ul>
+</li>
+</ol>
+<h2 id="license">License</h2>
+<p>MIT License - See LICENSE file for details</p>
+
+</body>
+</html>

@@ -1,15 +1,15 @@
 {
     "ip": "127.0.0.1",
     "port": 24353,
-    "QueueSize": 1000000,
+    "QueueSize": 10000000,
     "WorkerCount": 100,
     "DialTimeout": 1000,
     "WriteTimeout": 2000,
     "ReadTimeout": 30000,
-    "MaxRetries": 3,
+    "MaxRetries": 10,
     "ClientQueueSize": 10000,
     "ClientWorkerCount": 100,
     "ClientDialTimeout": 1000,
     "ClientWriteTimeout": 2000,
-    "ClientMaxRetries": 3
+    "ClientMaxRetries": 10
 }
