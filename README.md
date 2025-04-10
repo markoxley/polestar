@@ -131,8 +131,8 @@ The Thalamini hub server is configured via a `config.json` file. Here's an examp
 
 ```json
 {
-    "ip": "0.0.0.0",
-    "port": 24353,
+    "ip": "0.0.0.0",          // Required
+    "port": 24353,            // Required
     "queueSize": 1000000,
     "workerCount": 100,
     "dialTimeout": 1000,
@@ -147,28 +147,28 @@ The Thalamini hub server is configured via a `config.json` file. Here's an examp
 }
 ```
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| ip | IP address to bind the server to | "0.0.0.0" |
-| port | Port number to listen on | 24353 |
-| queueSize | Size of the message queue buffer | 1,000,000 |
-| workerCount | Number of concurrent message processing workers | 100 |
-| dialTimeout | TCP connection timeout (ms) | 1000 |
-| writeTimeout | Message write timeout (ms) | 2000 |
-| readTimeout | Message read timeout (ms) | 30000 |
-| maxRetries | Maximum message delivery attempts | 3 |
-| clientQueueSize | Size of each client's message queue | 1000 |
-| clientWorkerCount | Workers per client for message processing | 100 |
-| clientDialTimeout | Client TCP connection timeout (ms) | 1000 |
-| clientWriteTimeout | Client message write timeout (ms) | 2000 |
-| clientMaxRetries | Maximum client delivery attempts | 3 |
+| Parameter | Description | Required | Default |
+|-----------|-------------|----------|---------|
+| ip | IP address to bind the server to | Yes | "0.0.0.0" |
+| port | Port number to listen on | Yes | 24353 |
+| queueSize | Size of the message queue buffer | No | 1,000,000 |
+| workerCount | Number of concurrent message processing workers | No | 100 |
+| dialTimeout | TCP connection timeout (ms) | No | 1000 |
+| writeTimeout | Message write timeout (ms) | No | 2000 |
+| readTimeout | Message read timeout (ms) | No | 30000 |
+| maxRetries | Maximum message delivery attempts | No | 3 |
+| clientQueueSize | Size of each client's message queue | No | 1000 |
+| clientWorkerCount | Workers per client for message processing | No | 100 |
+| clientDialTimeout | Client TCP connection timeout (ms) | No | 1000 |
+| clientWriteTimeout | Client message write timeout (ms) | No | 2000 |
+| clientMaxRetries | Maximum client delivery attempts | No | 3 |
 
 ### Publisher Configuration
 
 ```json
 {
-    "address": "127.0.0.1",
-    "port": 24353,
+    "address": "127.0.0.1",   // Required
+    "port": 24353,            // Required
     "queueSize": 1000,
     "dialTimeout": 1000,
     "writeTimeout": 2000,
@@ -176,44 +176,44 @@ The Thalamini hub server is configured via a `config.json` file. Here's an examp
 }
 ```
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| address | Hub server address | "127.0.0.1" |
-| port | Hub server port | 24353 |
-| queueSize | Message buffer size | 1000 |
-| dialTimeout | Connection timeout (ms) | 1000 |
-| writeTimeout | Message write timeout (ms) | 2000 |
-| maxRetries | Failed message retry limit | 3 |
+| Parameter | Description | Required | Default |
+|-----------|-------------|----------|---------|
+| address | Hub server address | Yes | "127.0.0.1" |
+| port | Hub server port | Yes | 24353 |
+| queueSize | Message buffer size | No | 1000 |
+| dialTimeout | Connection timeout (ms) | No | 1000 |
+| writeTimeout | Message write timeout (ms) | No | 2000 |
+| maxRetries | Failed message retry limit | No | 3 |
 
 ### Consumer Configuration
 
 ```json
 {
-    "name": "myconsumer",
-    "hubAddress": "127.0.0.1",
-    "hubPort": 24353,
-    "address": "0.0.0.0",
-    "port": 8080,
+    "name": "myconsumer",     // Required
+    "hubAddress": "127.0.0.1", // Required
+    "hubPort": 24353,         // Required
+    "address": "0.0.0.0",     // Required
+    "port": 8080,             // Required
     "queueSize": 1000,
     "dialTimeout": 1000,
     "writeTimeout": 2000,
     "maxRetries": 3,
-    "topics": ["topic1", "topic2"]
+    "topics": ["topic1", "topic2"] // Required
 }
 ```
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| name | Unique consumer identifier | required |
-| hubAddress | Hub server address | "127.0.0.1" |
-| hubPort | Hub server port | 24353 |
-| address | Local binding address | "0.0.0.0" |
-| port | Local binding port | required |
-| queueSize | Message buffer size | 1000 |
-| dialTimeout | Connection timeout (ms) | 1000 |
-| writeTimeout | Message write timeout (ms) | 2000 |
-| maxRetries | Failed operation retry limit | 3 |
-| topics | Topics to subscribe to | required |
+| Parameter | Description | Required | Default |
+|-----------|-------------|----------|---------|
+| name | Unique consumer identifier | Yes |  |
+| hubAddress | Hub server address | Yes | "127.0.0.1" |
+| hubPort | Hub server port | Yes | 24353 |
+| address | Local binding address | Yes | "0.0.0.0" |
+| port | Local binding port | Yes |  |
+| queueSize | Message buffer size | No | 1000 |
+| dialTimeout | Connection timeout (ms) | No | 1000 |
+| writeTimeout | Message write timeout (ms) | No | 2000 |
+| maxRetries | Failed operation retry limit | No | 3 |
+| topics | Topics to subscribe to | Yes |  |
 
 ## Performance Characteristics
 
