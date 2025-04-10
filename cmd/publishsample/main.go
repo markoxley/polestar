@@ -47,7 +47,7 @@ import (
 	"github.com/markoxley/polestar/star"
 )
 
-const msgCount = 1000000 // Number of messages to send in the test
+const msgCount = 100000 // Number of messages to send in the test
 
 // main demonstrates a high-performance publisher that sends messages
 // to the "test" topic with configurable rate limiting. It measures
