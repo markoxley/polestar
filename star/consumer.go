@@ -224,7 +224,15 @@ func handler(c Consumer, conn net.Conn, queueIn chan *msg.Message) {
 //   - error: nil if registration succeeds, error otherwise
 func register(c Consumer, config *ConsumerConfig) error {
 	reg := msg.NewRegistrationMessage(config.Port, config.Name, config.Topics...)
-	return send(reg, config.HubAddress, config.HubPort)
+	for {
+		err := send(reg, config.HubAddress, config.HubPort)
+		if err == nil {
+			log.Printf("Registered consumer %s on %s:%d", config.Name, config.HubAddress, config.HubPort)
+			return nil
+		}
+		log.Printf("Failed to register: %v", err)
+		time.Sleep(time.Second)
+	}
 }
 
 // ping maintains the consumer's active status with the hub by sending
@@ -266,7 +274,7 @@ func ping(c Consumer, config *ConsumerConfig) error {
 
 			// Set write deadline
 			if err := currentConn.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
-				log.Printf("failed to set write deadline: %v\n", err)
+				register(c, config)
 				currentConn.Close()
 				currentConn = nil
 				connMutex.Unlock()
@@ -275,14 +283,14 @@ func ping(c Consumer, config *ConsumerConfig) error {
 
 			n, err := currentConn.Write(m.Serialize())
 			if err != nil {
-				log.Printf("write failed to %s: %v\n", addr, err)
+				register(c, config)
 				currentConn.Close()
 				currentConn = nil
 				connMutex.Unlock()
 				continue
 			}
 			if n < len(m.Serialize()) {
-				log.Printf("incomplete write to %s: sent %d of %d bytes", addr, n, len(m.Serialize()))
+				register(c, config)
 				currentConn.Close()
 				currentConn = nil
 				connMutex.Unlock()
