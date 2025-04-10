@@ -1,6 +1,6 @@
-# Polestar
+# ![Alt text](polestar_small.png) Polestar
 
-![Alt text](polestar_small.png)
+
 A high-performance message routing system written in Go that provides reliable message delivery through a publish-subscribe (pub/sub) pattern with topic-based routing. Measured performance of over 10,000 messages/second with 0.06ms average latency.
 
 
