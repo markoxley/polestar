@@ -20,10 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Package thal provides high-performance publish-subscribe messaging capabilities
-// for the Thalamini system. It implements both publisher and consumer interfaces
+// Package star provides high-performance publish-subscribe messaging capabilities
+// for the Polestar system. It implements both publisher and consumer interfaces
 // with configurable performance parameters, connection management, and error handling.
-package thal
+package star
 
 import (
 	"errors"
@@ -33,7 +33,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/markoxley/dani/msg"
+	"github.com/markoxley/polestar/msg"
 )
 
 // ConsumerConfig defines the configuration parameters for a consumer instance.

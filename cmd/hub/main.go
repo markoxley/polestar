@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Package main implements the Thalamini message hub server.
+// Package main implements the Polestar message hub server.
 // It provides a TCP server that handles client connections and routes messages
 // between registered clients. The server supports dynamic client registration,
 // topic-based message routing, and handles high-throughput message processing.
@@ -34,8 +34,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/markoxley/dani/config"
-	"github.com/markoxley/dani/hub"
+	"github.com/markoxley/polestar/config"
+	"github.com/markoxley/polestar/hub"
 )
 
 const (
@@ -48,7 +48,7 @@ const (
 	maxMessageSize = 10 * 2048 * 2048
 )
 
-// main initializes and runs the Thalamini hub server.
+// main initializes and runs the Polestar hub server.
 // It sets up a TCP listener and handles incoming connections in separate goroutines.
 // The server runs indefinitely until interrupted.
 //
@@ -156,7 +156,7 @@ func showStartup(ip string, port uint16) {
 	suffix := strings.Repeat(" ", w-(len(address)+len(prefix)))
 	address = prefix + address + suffix
 	fmt.Println("┌────────────────────────────────────────────┐")
-	fmt.Println("│                Thalamini Hub               │")
+	fmt.Println("│                Polestar Hub               │")
 	fmt.Println("│                                            │")
 	fmt.Printf("│%s│\n", address)
 	fmt.Println("└────────────────────────────────────────────┘")

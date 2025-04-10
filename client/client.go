@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Package client provides thread-safe client management for the Thalamini system.
+// Package client provides thread-safe client management for the Polestar system.
 // It implements a registry for tracking connected clients with case-insensitive
 // lookups and concurrent access support. The package is designed to handle
 // high-throughput messaging (>10,000 msg/sec) with ultra-low latency (~0.06ms).
@@ -33,10 +33,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/markoxley/dani/config"
+	"github.com/markoxley/polestar/config"
 )
 
-// Client represents a connected client in the Thalamini system.
+// Client represents a connected client in the Polestar system.
 // All fields are immutable after creation to ensure thread safety.
 // Each client maintains its own message queue and connection state,
 // optimized for high-throughput message processing.

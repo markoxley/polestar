@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Package msg implements a binary message protocol for the Thalamini system.
+// Package msg implements a binary message protocol for the Polestar system.
 // It provides efficient serialization and deserialization of messages with support
 // for multiple data types, message framing, and data integrity verification through
 // checksums. The protocol is optimized for low overhead in high-throughput scenarios.

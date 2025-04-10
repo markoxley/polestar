@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 // Package main provides a sample publisher application demonstrating
-// the usage of the Thal messaging system. It publishes a series of
+// the usage of the star messaging system. It publishes a series of
 // numbered messages to the "test" topic and includes timestamps.
 //
 // Performance characteristics (measured):
@@ -43,8 +43,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/markoxley/dani/msg"
-	"github.com/markoxley/dani/thal"
+	"github.com/markoxley/polestar/msg"
+	"github.com/markoxley/polestar/star"
 )
 
 const msgCount = 1000000 // Number of messages to send in the test
@@ -66,7 +66,7 @@ const msgCount = 1000000 // Number of messages to send in the test
 //   - Messages per second
 //   - Average time per message
 func main() {
-	cfg := &thal.PublishConfig{
+	cfg := &star.PublishConfig{
 		Address:      "127.0.0.1",
 		Port:         24353,
 		QueueSize:    1000000,
@@ -74,14 +74,14 @@ func main() {
 		WriteTimeout: 2000,
 		MaxRetries:   3,
 	}
-	if err := thal.Init(cfg); err != nil {
+	if err := star.Init(cfg); err != nil {
 		log.Panic(err)
 	}
 	start := time.Now()
 	for i := 0; i < msgCount; i++ {
 		t := time.Now().UnixNano()
 		d := msg.MessageData{"data": fmt.Sprintf("message-%d", i), "time": t}
-		thal.Publish("test", d)
+		star.Publish("test", d)
 		if (i+1)%1000 == 0 {
 			fmt.Println("Published", (i + 1), "messages")
 		}
@@ -99,6 +99,6 @@ func main() {
 	//time.Sleep(time.Second * 5)
 
 	// Send quit message to signal consumers to shut down
-	//thal.Publish("test", msg.MessageData{"data": "quit"})
+	//star.Publish("test", msg.MessageData{"data": "quit"})
 	select {}
 }

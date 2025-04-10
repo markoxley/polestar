@@ -1,5 +1,5 @@
-// Package thal provides high-performance publish-subscribe messaging capabilities
-// for the Thalamini system. It implements both publisher and consumer interfaces
+// Package star provides high-performance publish-subscribe messaging capabilities
+// for the Polestar system. It implements both publisher and consumer interfaces
 // with configurable performance parameters, connection management, and error handling.
 //
 // Performance characteristics:
@@ -7,7 +7,7 @@
 // - Latency: ~0.06ms average per message
 // - Queue Size: 1,000,000 messages default
 // - Worker Count: 100 concurrent workers
-package thal
+package star
 
 import (
 	"errors"
@@ -16,7 +16,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/markoxley/dani/msg"
+	"github.com/markoxley/polestar/msg"
 )
 
 // PublishConfig defines the configuration parameters for a publisher instance.
@@ -99,7 +99,7 @@ func Init(config *PublishConfig) error {
 // Messages are delivered in a separate goroutine with automatic retries
 // and backoff. If the queue is full, the message is dropped to prevent
 // blocking. The function is thread-safe and can be called concurrently.
-// 
+//
 // Performance characteristics:
 //   - Non-blocking operation (uses select on channel)
 //   - Automatic retries up to MaxRetries
@@ -107,14 +107,14 @@ func Init(config *PublishConfig) error {
 //   - Throughput: >10,000 messages/second
 //   - Connection pooling for efficiency
 //   - Configurable queue size for backpressure (default: 1,000,000)
-// 
+//
 // Example usage:
-// 
-// 	data := map[string]interface{}{
-// 	    "timestamp": time.Now().UnixNano(),
-// 	    "value": 42,
-// 	}
-// 	Publish("sensors.temperature", data)
+//
+//	data := map[string]interface{}{
+//	    "timestamp": time.Now().UnixNano(),
+//	    "value": 42,
+//	}
+//	Publish("sensors.temperature", data)
 func Publish(topic string, data map[string]interface{}) error {
 	m := msg.NewMessage(topic)
 	if err := m.SetData(data); err != nil {

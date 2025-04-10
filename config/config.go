@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Package config provides configuration management for the Thalamini hub system.
+// Package config provides configuration management for the Polestar hub system.
 // It handles loading and validation of configuration parameters with sensible defaults
 // optimized for high-throughput message processing (>10,000 msg/sec).
 package config
@@ -30,7 +30,7 @@ import (
 	"os"
 )
 
-// Config defines the operational parameters for the Thalamini hub.
+// Config defines the operational parameters for the Polestar hub.
 // Default values are optimized for high-throughput scenarios:
 // - Queue Size: 1,000,000 messages for handling >10,000 msg/sec
 // - Worker Count: 100 concurrent workers for parallel processing

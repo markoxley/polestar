@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 // Package main provides a sample consumer application demonstrating
-// the usage of the Thal messaging system. It receives messages from
+// the usage of the star messaging system. It receives messages from
 // the "test" topic and tracks message counts and shutdown signals.
 //
 // Performance characteristics:
@@ -45,13 +45,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/markoxley/dani/msg"
-	"github.com/markoxley/dani/thal"
+	"github.com/markoxley/polestar/msg"
+	"github.com/markoxley/polestar/star"
 )
 
 // consumerSample implements a basic message consumer that counts
 // received messages and handles shutdown signals. It demonstrates
-// the minimal implementation of the thal.Consumer interface.
+// the minimal implementation of the star.Consumer interface.
 //
 // Thread Safety:
 //   - count field is protected by implicit goroutine confinement
@@ -68,7 +68,7 @@ type consumerSample struct {
 	quit  bool // Shutdown flag
 }
 
-// Consume implements the thal.Consumer interface. It receives messages
+// Consume implements the star.Consumer interface. It receives messages
 // from the hub and processes them according to their content. Regular
 // messages increment the counter, while a "quit" message triggers
 // a clean shutdown.
@@ -115,7 +115,7 @@ func (c *consumerSample) Consume(m *msg.Message) {
 //   - Topics: ["test"]
 func main() {
 	c := &consumerSample{}
-	cfg := &thal.ConsumerConfig{
+	cfg := &star.ConsumerConfig{
 		Name:         "sample",
 		Address:      "127.0.0.1",
 		Port:         8080,
@@ -127,7 +127,7 @@ func main() {
 		MaxRetries:   3,
 		Topics:       []string{"test"},
 	}
-	if err := thal.Listen(c, cfg); err != nil {
+	if err := star.Listen(c, cfg); err != nil {
 		log.Panic(err)
 	}
 	fmt.Println("listening on 127.0.0.1:8080")

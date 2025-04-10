@@ -27,7 +27,7 @@ import (
 	"sync"
 )
 
-// Topic manages client subscriptions to topics in the Thalamini system.
+// Topic manages client subscriptions to topics in the Polestar system.
 // It provides thread-safe operations for adding and removing clients from topics,
 // and retrieving clients subscribed to a specific topic.
 // Each topic maintains a list of clients interested in receiving messages on that topic.

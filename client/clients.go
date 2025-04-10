@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Package client provides thread-safe client management for the Thalamini system.
+// Package client provides thread-safe client management for the Polestar system.
 // It implements a registry for tracking connected clients with case-insensitive
 // lookups and concurrent access support. The package is designed to be used as
 // part of a larger messaging system where clients can dynamically join and leave.
@@ -33,7 +33,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/markoxley/dani/config"
+	"github.com/markoxley/polestar/config"
 )
 
 // garbageTimer defines how often to run cleanup of inactive clients.

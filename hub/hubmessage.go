@@ -20,10 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Package main provides message handling for the Thalamini hub.
+// Package main provides message handling for the Polestar hub.
 package hub
 
-// HubMessage represents a message in the Thalamini hub system.
+// HubMessage represents a message in the Polestar hub system.
 // It contains both the message data and metadata about its origin.
 // This struct is used internally by the hub to manage message routing.
 // For example, a HubMessage can be created and sent through the hub like this:

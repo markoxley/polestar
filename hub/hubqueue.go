@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Package hub implements a concurrent message processing hub for the Thalamini system.
+// Package hub implements a concurrent message processing hub for the Polestar system.
 // It provides a high-performance, thread-safe message routing system with support
 // for client registration, topic-based message routing, and automatic retries.
 // The package uses a worker pool pattern for efficient message processing and
@@ -43,10 +43,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/markoxley/dani/client"
-	"github.com/markoxley/dani/config"
-	"github.com/markoxley/dani/msg"
-	"github.com/markoxley/dani/topic"
+	"github.com/markoxley/polestar/client"
+	"github.com/markoxley/polestar/config"
+	"github.com/markoxley/polestar/msg"
+	"github.com/markoxley/polestar/topic"
 )
 
 // Constants defining the hub configuration and timeouts
