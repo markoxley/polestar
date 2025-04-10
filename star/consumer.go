@@ -222,11 +222,14 @@ func handler(c Consumer, conn net.Conn, queueIn chan *msg.Message) {
 //
 // Returns:
 //   - error: nil if registration succeeds, error otherwise
-func register(c Consumer, config *ConsumerConfig) error {
+func register(c Consumer, config *ConsumerConfig, reregister ...bool) error {
 	reg := msg.NewRegistrationMessage(config.Port, config.Name, config.Topics...)
 	for {
 		err := send(reg, config.HubAddress, config.HubPort)
 		if err == nil {
+			if reregister != nil && reregister[0] {
+				log.Printf("Re-registered consumer %s on %s:%d", config.Name, config.HubAddress, config.HubPort)
+			}
 			log.Printf("Registered consumer %s on %s:%d", config.Name, config.HubAddress, config.HubPort)
 			return nil
 		}
@@ -274,7 +277,7 @@ func ping(c Consumer, config *ConsumerConfig) error {
 
 			// Set write deadline
 			if err := currentConn.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
-				register(c, config)
+				register(c, config, true)
 				currentConn.Close()
 				currentConn = nil
 				connMutex.Unlock()
@@ -283,14 +286,14 @@ func ping(c Consumer, config *ConsumerConfig) error {
 
 			n, err := currentConn.Write(m.Serialize())
 			if err != nil {
-				register(c, config)
+				register(c, config, true)
 				currentConn.Close()
 				currentConn = nil
 				connMutex.Unlock()
 				continue
 			}
 			if n < len(m.Serialize()) {
-				register(c, config)
+				register(c, config, true)
 				currentConn.Close()
 				currentConn = nil
 				connMutex.Unlock()
