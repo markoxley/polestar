@@ -30,8 +30,11 @@ The Thalamini system consists of a central hub server that handles message routi
 package main
 
 import (
-    "github.com/markoxley/thal"
+    "log"
     "time"
+    
+    "github.com/markoxley/dani/msg"
+    "github.com/markoxley/dani/thal"
 )
 
 func main() {
@@ -70,8 +73,11 @@ func main() {
 package main
 
 import (
-    "github.com/markoxley/thal"
+    "log"
+    "fmt"
+    
     "github.com/markoxley/dani/msg"
+    "github.com/markoxley/dani/thal"
 )
 
 // MyConsumer implements the thal.Consumer interface
