@@ -32,6 +32,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/markoxley/dani/config"
 )
 
 // garbageTimer defines how often to run cleanup of inactive clients.
@@ -59,7 +61,7 @@ type Clients struct {
 //
 // Returns:
 //   - *Clients: A new, empty client registry
-func New() *Clients {
+func New(config *config.Config) *Clients {
 	c := &Clients{
 		clients: make(map[string]*Client),
 	}

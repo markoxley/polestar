@@ -44,37 +44,13 @@ import (
 	"time"
 
 	"github.com/markoxley/dani/client"
+	"github.com/markoxley/dani/config"
 	"github.com/markoxley/dani/msg"
 	"github.com/markoxley/dani/topic"
 )
 
 // Constants defining the hub configuration and timeouts
-const (
-	// queueSize is the buffer size for the message queue channel.
-	// Messages beyond this limit will be dropped to prevent memory exhaustion.
-	// This provides backpressure to publishers when the system is overloaded.
-	queueSize = 1000000
-
-	// defaultWorkerCount is the default number of concurrent workers processing messages.
-	// This provides a balance between parallelism and system resource usage.
-	// Can be overridden using NewWithWorkers for specific use cases.
-	defaultWorkerCount = 100
-
-	// dialTimeout is the maximum time allowed for establishing a TCP connection.
-	// Connections that take longer will be aborted. This prevents resource
-	// exhaustion from slow or unresponsive clients.
-	dialTimeout = 1 * time.Second
-
-	// writeTimeout is the maximum time allowed for writing data to a client.
-	// Writes that exceed this timeout will fail and may trigger retries.
-	// This ensures that slow clients cannot block the entire system.
-	writeTimeout = 2 * time.Second
-
-	// maxRetries is the maximum number of attempts to deliver a message.
-	// After this many failures, the message will be dropped and logged.
-	// This prevents infinite retry loops for persistently failing clients.
-	maxRetries = 3
-)
+const ()
 
 // HubQueue manages concurrent message processing with a buffered channel and worker pool.
 // It handles client registration, message routing, and maintains thread-safe client state.
@@ -91,59 +67,33 @@ const (
 //   - Queue overflow errors are returned to callers
 //   - Client errors do not affect other clients
 type HubQueue struct {
-	messageQueue chan HubMessage // Channel for queuing messages to be processed
-	waitGroup    sync.WaitGroup  // WaitGroup for synchronizing worker goroutines
-	workerCount  int             // Number of workers to spawn
+	messageQueue chan HubMessage // Buffered channel for pending messages
+	waitGroup    sync.WaitGroup  // For graceful shutdown coordination
+	workerCount  int             // Number of message processing workers
 	clients      *client.Clients // Thread-safe client registry
-	topics       *topic.Topic    // Topic subscription management
+	topics       *topic.Topic    // Topic subscription manager
+	config       *config.Config  // System configuration
 }
 
-// New creates and returns a new Hub instance with the default worker count.
+// New creates and returns a new Hub instance.
 // It initializes all internal components including the message queue,
 // client registry, and topic manager. The hub is ready to process
 // messages but Run() must be called to start the worker pool.
 //
-// Returns:
-//   - *HubQueue: A fully initialized hub ready for use
-//
-// Example:
-//
-//	hub := New()
-//	hub.Run()
-//	defer hub.Stop()
-func New() *HubQueue {
-	return NewWithWorkers(defaultWorkerCount)
-}
-
-// NewWithWorkers creates a new Hub with a specified number of workers.
-// It allows customization of the concurrency level while maintaining
-// all other default settings. This is useful for tuning performance
-// based on the expected message load and system resources.
-//
 // Parameters:
-//   - workers: Number of concurrent message processing workers
+//   - config: System configuration including worker count and queue sizes
 //
 // Returns:
-//   - *HubQueue: A fully initialized hub with the specified worker count
-//
-// If workers <= 0, the default worker count will be used.
-//
-// Example:
-//
-//	hub := NewWithWorkers(50) // Create hub with 50 workers
-//	hub.Run()
-//	defer hub.Stop()
-func NewWithWorkers(workers int) *HubQueue {
-	if workers <= 0 {
-		workers = defaultWorkerCount
-	}
-	c := client.New()
+//   - *HubQueue: A fully initialized hub instance
+func New(config *config.Config) *HubQueue {
+	c := client.New(config)
 	t := topic.New()
 	h := &HubQueue{
-		messageQueue: make(chan HubMessage, queueSize),
-		workerCount:  workers,
+		messageQueue: make(chan HubMessage, config.QueueSize),
+		workerCount:  config.WorkerCount,
 		clients:      c,
 		topics:       t,
+		config:       config,
 	}
 	return h
 }
@@ -297,7 +247,7 @@ func (h *HubQueue) registerClient(ip string, m *msg.Message) error {
 		return errors.New("missing source name")
 	}
 	topics = topics[1:]
-	h.clients.Add(client.NewClient(ip, port, name))
+	h.clients.Add(client.NewClient(ip, port, name, h.config))
 
 	if len(topics) == 0 {
 		return nil
@@ -335,7 +285,7 @@ func (h *HubQueue) processData(topic string, data []byte) {
 // Returns:
 //   - error: nil if delivery succeeds, or an error describing the failure
 func (h *HubQueue) sendData(c *client.Client, data []byte) error {
-	dialer := net.Dialer{Timeout: dialTimeout}
+	dialer := net.Dialer{Timeout: time.Duration(h.config.DialTimeout) * time.Millisecond}
 	// Use JoinHostPort to properly handle IPv6 addresses
 	addr := net.JoinHostPort(c.IP, fmt.Sprintf("%d", c.Port))
 	client, err := dialer.Dial("tcp", addr)
@@ -345,7 +295,7 @@ func (h *HubQueue) sendData(c *client.Client, data []byte) error {
 	defer client.Close()
 
 	// Set write deadline
-	if err := client.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
+	if err := client.SetWriteDeadline(time.Now().Add(time.Duration(h.config.WriteTimeout) * time.Millisecond)); err != nil {
 		return fmt.Errorf("failed to set write deadline: %v", err)
 	}
 

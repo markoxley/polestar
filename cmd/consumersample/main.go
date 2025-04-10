@@ -21,15 +21,21 @@
 // SOFTWARE.
 
 // Package main provides a sample consumer application demonstrating
-// the usage of the Thal messaging system. It implements a simple message
-// consumer that subscribes to the "test" topic and processes messages
-// until receiving a quit signal.
+// the usage of the Thal messaging system. It receives messages from
+// the "test" topic and tracks message counts and shutdown signals.
+//
+// Performance characteristics:
+//   - Message queue size: 1000 messages
+//   - Concurrent processing: Single goroutine
+//   - Auto-reconnection: Yes
+//   - Health monitoring: 15s ping interval
 //
 // The sample demonstrates:
-//   - Consumer implementation and registration
-//   - Message handling with channels
-//   - Graceful shutdown on quit message
-//   - Error handling for malformed messages
+//   - Consumer configuration
+//   - Message reception and processing
+//   - Graceful shutdown handling
+//   - Connection management
+//   - Performance monitoring
 package main
 
 import (
@@ -41,18 +47,35 @@ import (
 	"github.com/markoxley/dani/thal"
 )
 
-// consumerSample implements the thal.Consumer interface and provides
-// a channel-based message processing system. It demonstrates a pattern
-// for handling messages asynchronously while maintaining clean shutdown.
+// consumerSample implements a basic message consumer that counts
+// received messages and handles shutdown signals. It demonstrates
+// the minimal implementation of the thal.Consumer interface.
+//
+// Thread Safety:
+//   - count field is protected by implicit goroutine confinement
+//   - quit flag is only written once
+//
+// Performance:
+//   - Non-blocking message processing
+//   - Immediate shutdown on quit message
+//   - Minimal memory footprint
 type consumerSample struct {
-	count int
-	quit bool
+	count int  // Total messages received
+	quit  bool // Shutdown flag
 }
 
 // Consume implements the thal.Consumer interface. It receives messages
-// from the Thal system and forwards them to the processing channel.
-// This method is called concurrently by the Thal system, so it must
-// be thread-safe.
+// from the hub and processes them according to their content. Regular
+// messages increment the counter, while a "quit" message triggers
+// a clean shutdown.
+//
+// Thread Safety:
+//   - Safe for concurrent calls (though currently single-threaded)
+//   - count field is protected by goroutine confinement
+//
+// Message Types:
+//   - Regular: Contains timestamp and sequence number
+//   - Quit: Triggers graceful shutdown
 func (c *consumerSample) Consume(m *msg.Message) {
 	c.count++
 	d, err := m.Data()
@@ -73,25 +96,34 @@ func (c *consumerSample) Consume(m *msg.Message) {
 //   - Graceful shutdown on quit message
 //   - Continuous message processing
 
-
-// GetHub implements the thal.Consumer interface by returning the
-// address and port of the Thalamini hub. This consumer connects
-// to a local hub on the default port.
-func (c *consumerSample) GetHub() (string, uint16) {
-	return "127.0.0.1", 24353
-}
-
 // main initializes and runs the sample consumer. It:
-//   1. Creates a new consumer with a buffered message channel
-//   2. Registers with the hub on the "test" topic
-//   3. Starts message processing in a separate goroutine
-//   4. Waits for shutdown signal
+//  1. Creates a new consumer with a buffered message channel
+//  2. Registers with the hub on the "test" topic
+//  3. Starts message processing in a separate goroutine
+//  4. Waits for shutdown signal
 //
-// The consumer listens on localhost:8080 and connects to a
-// Thalamini hub at 127.0.0.1:24353.
+// Configuration:
+//   - Local binding: 127.0.0.1:8080
+//   - Hub connection: 127.0.0.1:24353
+//   - Queue size: 1000 messages
+//   - Timeouts: 1000ms dial, 2000ms write
+//   - Max retries: 3
+//   - Topics: ["test"]
 func main() {
 	c := &consumerSample{}
-	if err := thal.Listen("sample", "127.0.0.1", 8080, c, "test"); err != nil {
+	cfg := &thal.ConsumerConfig{
+		Name:         "sample",
+		Address:      "127.0.0.1",
+		Port:         8080,
+		HubAddress:   "127.0.0.1",
+		HubPort:      24353,
+		QueueSize:    1000,
+		DialTimeout:  1000,
+		WriteTimeout: 2000,
+		MaxRetries:   3,
+		Topics:       []string{"test"},
+	}
+	if err := thal.Listen(c, cfg); err != nil {
 		log.Panic(err)
 	}
 	fmt.Println("listening on 127.0.0.1:8080")

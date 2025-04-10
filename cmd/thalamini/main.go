@@ -46,10 +46,6 @@ const (
 	// maxMessageSize defines the maximum allowed size for a single message (10MB).
 	// Messages exceeding this size will be rejected to prevent memory exhaustion.
 	maxMessageSize = 10 * 1024 * 1024
-
-	// readTimeout defines how long to wait for data from a client before closing
-	// the connection. This prevents idle connections from consuming resources.
-	readTimeout = 30 * time.Second
 )
 
 // main initializes and runs the Thalamini hub server.
@@ -66,7 +62,7 @@ const (
 // If configuration loading fails, the program will panic.
 func main() {
 	config := config.MustLoad()
-	hb := hub.New()
+	hb := hub.New(config)
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", config.IP, config.Port))
 	if err != nil {
 		panic(err)
@@ -81,7 +77,7 @@ func main() {
 			fmt.Printf("Error accepting connection: %v", err)
 			continue // Continue accepting other connections
 		}
-		go handleConnection(conn, hb)
+		go handleConnection(conn, hb, config)
 	}
 }
 
@@ -97,9 +93,10 @@ func main() {
 // Parameters:
 //   - c: The TCP connection to handle
 //   - hb: The hub instance for message processing
+//   - config: The configuration for the server
 //
 // The connection is automatically closed when the function returns.
-func handleConnection(c net.Conn, hb *hub.HubQueue) {
+func handleConnection(c net.Conn, hb *hub.HubQueue, config *config.Config) {
 
 	defer func() {
 		c.Close()
@@ -112,7 +109,7 @@ func handleConnection(c net.Conn, hb *hub.HubQueue) {
 	totalBytes := 0
 
 	for {
-		if err := c.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
+		if err := c.SetReadDeadline(time.Now().Add(time.Duration(config.ReadTimeout) * time.Millisecond)); err != nil {
 			log.Printf("Failed to set read deadline: %v", err)
 			return
 		}
