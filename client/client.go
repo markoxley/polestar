@@ -21,9 +21,32 @@
 // SOFTWARE.
 
 // Package client provides thread-safe client management for the Polestar system.
-// It implements a registry for tracking connected clients with case-insensitive
-// lookups and concurrent access support. The package is designed to handle
-// high-throughput messaging (>10,000 msg/sec) with ultra-low latency (~0.06ms).
+// It implements a high-performance registry for tracking connected clients with 
+// case-insensitive lookups and concurrent access support.
+//
+// Performance characteristics:
+//   - Message throughput: >10,000 messages/second
+//   - Average latency: ~0.06ms per message
+//   - Queue capacity: 1,000,000 messages
+//   - Worker pool: 100 concurrent workers
+//
+// Thread safety:
+//   - All public methods are safe for concurrent use
+//   - Internal state protected by sync.Mutex
+//   - Non-blocking operations for optimal performance
+//
+// Example usage:
+//
+//	cfg := &config.Config{
+//	    QueueSize: 1000000,
+//	    Workers: 100,
+//	}
+//	client := NewClient("192.168.1.1", 8080, "sensor1", cfg)
+//	client.Run()
+//	defer client.Stop()
+//
+//	// Send messages asynchronously
+//	client.Send([]byte("Hello"))
 package client
 
 import (
@@ -36,16 +59,20 @@ import (
 	"github.com/markoxley/polestar/config"
 )
 
-// Client represents a connected client in the Polestar system.
-// All fields are immutable after creation to ensure thread safety.
-// Each client maintains its own message queue and connection state,
-// optimized for high-throughput message processing.
+// Client represents a connected client in the Polestar messaging system.
+// It maintains a message queue and connection state optimized for high-throughput
+// message processing with ultra-low latency characteristics.
 //
-// Performance characteristics:
-// - Message throughput: >10,000 msg/sec
-// - Average latency: ~0.06ms
-// - Queue size: 1,000,000 messages
-// - Worker count: 100
+// Fields are immutable after creation to ensure thread safety in concurrent
+// operations. Each client uses a buffered channel for message queueing and
+// implements automatic connection management with configurable timeouts.
+//
+// Performance tuning:
+//   - Non-blocking message queue operations
+//   - Connection pooling for reduced latency
+//   - Automatic retry with exponential backoff
+//   - Configurable timeouts and buffer sizes
+//   - Health monitoring via periodic pings
 type Client struct {
 	IP       string         // Network address of the client (IPv4 or IPv6)
 	Port     uint16         // TCP port the client is listening on

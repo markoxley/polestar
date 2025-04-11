@@ -1,12 +1,48 @@
-// Package star provides high-performance publish-subscribe messaging capabilities
-// for the Polestar system. It implements both publisher and consumer interfaces
-// with configurable performance parameters, connection management, and error handling.
+// Package star implements a high-performance publish-subscribe messaging system
+// for Polestar. It provides both publisher and consumer interfaces with
+// configurable performance parameters and robust error handling.
+//
+// Architecture:
+//   - Asynchronous message publishing with buffered queues
+//   - Connection pooling for optimal network utilization
+//   - Automatic retry with exponential backoff
+//   - Topic-based routing with wildcard support
 //
 // Performance characteristics:
-// - Throughput: >10,000 messages/second
-// - Latency: ~0.06ms average per message
-// - Queue Size: 1,000,000 messages default
-// - Worker Count: 100 concurrent workers
+//   - Message throughput: >10,000 messages/second
+//   - Average latency: ~0.06ms per message
+//   - Queue capacity: 1,000,000 messages (configurable)
+//   - Connection pooling: Dynamic based on load
+//
+// Thread safety:
+//   - All public methods are safe for concurrent use
+//   - Internal state protected by channels
+//   - Non-blocking operations for optimal performance
+//
+// Example usage:
+//
+//	cfg := &PublishConfig{
+//	    Address: "hub.example.com",
+//	    Port: 24353,
+//	    QueueSize: 1000000,
+//	    DialTimeout: 1000,  // milliseconds
+//	    WriteTimeout: 2000, // milliseconds
+//	    MaxRetries: 3,
+//	}
+//	
+//	if err := Init(cfg); err != nil {
+//	    log.Fatalf("Failed to initialize publisher: %v", err)
+//	}
+//	
+//	// Publish messages asynchronously
+//	data := map[string]interface{}{
+//	    "sensor_id": "temp_1",
+//	    "value": 23.5,
+//	    "timestamp": time.Now().Unix(),
+//	}
+//	if err := Publish("sensors.temperature", data); err != nil {
+//	    log.Printf("Failed to publish: %v", err)
+//	}
 package star
 
 import (
@@ -20,13 +56,29 @@ import (
 )
 
 // PublishConfig defines the configuration parameters for a publisher instance.
-// All time-based fields are specified in milliseconds.
+// It provides fine-grained control over network timeouts, queue sizes, and
+// retry behavior to optimize for different use cases.
 //
-// Performance-optimized defaults:
-// - QueueSize: 1,000,000 for high-throughput scenarios
-// - DialTimeout: 1000ms for connection establishment
-// - WriteTimeout: 2000ms for message transmission
-// - MaxRetries: 3 attempts with exponential backoff
+// Performance tuning:
+//   - QueueSize: Adjust based on message volume and memory constraints
+//   - DialTimeout: Balance between quick failure and slow networks
+//   - WriteTimeout: Consider message size and network latency
+//   - MaxRetries: Trade reliability vs. latency
+//
+// Default values are optimized for high-throughput scenarios:
+//   - QueueSize: 1,000,000 messages
+//   - DialTimeout: 1000ms
+//   - WriteTimeout: 2000ms
+//   - MaxRetries: 3 attempts
+//
+// Example configuration for low-latency trading:
+//
+//	cfg := &PublishConfig{
+//	    QueueSize: 100000,    // Smaller queue for lower latency
+//	    DialTimeout: 500,     // Faster connection timeout
+//	    WriteTimeout: 1000,   // Faster write timeout
+//	    MaxRetries: 1,        // Minimal retries for fresh data
+//	}
 type PublishConfig struct {
 	Address      string `json:"address"`      // Hub server address (default: "127.0.0.1")
 	Port         uint16 `json:"port"`         // Hub server port (default: 24353)
