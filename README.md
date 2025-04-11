@@ -1,8 +1,6 @@
 # ![Alt text](polestar_small.png) Polestar
 
-
 A high-performance message routing system written in Go that provides reliable message delivery through a publish-subscribe (pub/sub) pattern with topic-based routing. Measured performance of over 10,000 messages/second with 0.06ms average latency.
-
 
 > **Note**: This application is designed for Linux systems only. Due to differences in socket communication handling on Windows, the application may experience issues when run on Windows systems.
 
@@ -301,6 +299,8 @@ All operations are thread-safe and support concurrent access:
    - Keep topic names concise
    - Document topic patterns
    - Consider message routing paths
+
+[Demonstration of Polestar running](Polestar.mp4)
 
 ## License
 
