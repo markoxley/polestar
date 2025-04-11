@@ -156,7 +156,7 @@ func showStartup(ip string, port uint16) {
 	suffix := strings.Repeat(" ", w-(len(address)+len(prefix)))
 	address = prefix + address + suffix
 	fmt.Println("┌────────────────────────────────────────────┐")
-	fmt.Println("│                Polestar Hub               │")
+	fmt.Println("│                Polestar Hub                │")
 	fmt.Println("│                                            │")
 	fmt.Printf("│%s│\n", address)
 	fmt.Println("└────────────────────────────────────────────┘")
