@@ -300,7 +300,7 @@ All operations are thread-safe and support concurrent access:
    - Document topic patterns
    - Consider message routing paths
 
-[Demonstration of Polestar running](Polestar.mp4)
+[Demonstration of Polestar running](https://youtu.be/_9nyXyRH1jI)
 
 ## License
 
