@@ -39,7 +39,7 @@ type PublishConfig struct {
 var (
 	// queue acts as a buffered channel between message producers and the
 	// background sender goroutine. Uses FIFO ordering to preserve message order.
-	queue     chan *msg.Message
+	queue     PoleChannel
 	pubConfig *PublishConfig
 )
 
@@ -90,7 +90,7 @@ func Init(config *PublishConfig) error {
 		config.Port = 24353
 	}
 	pubConfig = config
-	queue = make(chan *msg.Message, config.QueueSize)
+	queue = make(PoleChannel, config.QueueSize)
 	go run(config.Address, config.Port)
 	return nil
 }
@@ -120,12 +120,11 @@ func Publish(topic string, data map[string]interface{}) error {
 	if err := m.SetData(data); err != nil {
 		return err
 	}
-	select {
-	case queue <- m:
-		return nil
-	default:
-		return errors.New("queue full, message dropped")
+	_, err := queue.Send(m)
+	if err != nil {
+		return err
 	}
+	return nil
 }
 
 // run continuously processes messages from the queue until it is closed.

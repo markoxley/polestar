@@ -67,7 +67,7 @@ const ()
 //   - Queue overflow errors are returned to callers
 //   - Client errors do not affect other clients
 type HubQueue struct {
-	messageQueue chan HubMessage // Buffered channel for pending messages
+	messageQueue HubChannel      // Buffered channel for pending messages
 	waitGroup    sync.WaitGroup  // For graceful shutdown coordination
 	workerCount  int             // Number of message processing workers
 	clients      *client.Clients // Thread-safe client registry
@@ -89,7 +89,7 @@ func New(config *config.Config) *HubQueue {
 	c := client.New(config)
 	t := topic.New()
 	h := &HubQueue{
-		messageQueue: make(chan HubMessage, config.QueueSize),
+		messageQueue: make(HubChannel, config.QueueSize),
 		workerCount:  config.WorkerCount,
 		clients:      c,
 		topics:       t,
@@ -151,12 +151,8 @@ func (h *HubQueue) Stop() {
 //	    log.Println("Queue full:", err)
 //	}
 func (h *HubQueue) Store(message HubMessage) error {
-	select {
-	case h.messageQueue <- message:
-		return nil
-	default:
-		return errors.New("queue full")
-	}
+	_, err := h.messageQueue.Send(&message)
+	return err
 }
 
 // workerRun processes messages from the provided channel until it's closed.
@@ -176,7 +172,7 @@ func (h *HubQueue) Store(message HubMessage) error {
 //   - Deserialization errors are logged
 //   - Unknown message types are rejected
 //   - Client errors are isolated
-func (h *HubQueue) workerRun(ch chan HubMessage) {
+func (h *HubQueue) workerRun(ch HubChannel) {
 	for hm := range ch {
 
 		m := &msg.Message{}

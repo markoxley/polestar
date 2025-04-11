@@ -51,7 +51,7 @@ type Client struct {
 	Port     uint16         // TCP port the client is listening on
 	Name     string         // Unique identifier (stored in lowercase)
 	LastPing time.Time      // Timestamp of the last ping received from this client
-	ch       chan []byte    // Message queue channel for outbound messages
+	ch       ClientChannel  // Message queue channel for outbound messages
 	config   *config.Config // Configuration settings for the client
 }
 
@@ -73,7 +73,7 @@ func NewClient(ip string, port uint16, name string, config *config.Config) *Clie
 		Port:     port,
 		Name:     name,
 		LastPing: time.Now(),
-		ch:       make(chan []byte, config.ClientQueueSize),
+		ch:       make(ClientChannel, config.ClientQueueSize),
 		config:   config,
 	}
 	c.Run()
@@ -164,12 +164,7 @@ func (c *Client) send(m []byte, mt *sync.Mutex) error {
 // Parameters:
 //   - m: The message bytes to queue for delivery
 func (c *Client) Send(m []byte) {
-	select {
-	case c.ch <- m:
-		// Message was successfully added to the channel
-	default:
-		// Channel is full, drop the message
-	}
+	c.ch.Send(m)
 }
 
 // Stop gracefully shuts down the client's message processing.

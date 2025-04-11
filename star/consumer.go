@@ -172,7 +172,7 @@ func Listen(c Consumer, config *ConsumerConfig) error {
 // Returns:
 //   - chan *msg.Message: Channel for queuing incoming messages
 func startQueue(c Consumer, config *ConsumerConfig) chan *msg.Message {
-	queueIn := make(chan *msg.Message, config.QueueSize)
+	queueIn := make(PoleChannel, config.QueueSize)
 	go func() {
 		for msg := range queueIn {
 			c.Consume(msg)
@@ -186,7 +186,7 @@ func startQueue(c Consumer, config *ConsumerConfig) chan *msg.Message {
 // It automatically closes the connection when done. Uses a 1KB buffer
 // for reading messages, which should be sufficient for most use cases.
 // Any errors during message processing are logged but do not stop the handler.
-func handler(c Consumer, conn net.Conn, queueIn chan *msg.Message) {
+func handler(c Consumer, conn net.Conn, queueIn PoleChannel) {
 	defer conn.Close()
 	buf := make([]byte, 1024)
 	data := make([]byte, 0)
@@ -202,12 +202,12 @@ func handler(c Consumer, conn net.Conn, queueIn chan *msg.Message) {
 	}
 	msgs := msg.Split(data)
 	for _, m := range msgs {
-		select {
-		case queueIn <- m:
-			//
-		default:
-			log.Printf("Queue full, discarding message")
+		_, err := queueIn.Send(m)
+		if err != nil {
+			log.Printf("Failed to send message: %v", err)
+			continue
 		}
+
 	}
 }
 

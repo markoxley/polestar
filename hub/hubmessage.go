@@ -23,6 +23,8 @@
 // Package main provides message handling for the Polestar hub.
 package hub
 
+import "errors"
+
 // HubMessage represents a message in the Polestar hub system.
 // It contains both the message data and metadata about its origin.
 // This struct is used internally by the hub to manage message routing.
@@ -33,4 +35,25 @@ package hub
 type HubMessage struct {
 	IP   string // Source IP address of the message
 	Data []byte // Raw message data
+}
+
+type HubChannel chan *HubMessage
+
+func (h HubChannel) Send(m *HubMessage) (bool, error) {
+	select {
+	case h <- m:
+		return false, nil
+	default:
+		// Channel is full, drop the oldest and try again
+		<-h // Discard oldest
+		select {
+		case h <- m:
+			// Message sent after dropping oldest
+			return true, nil
+		default:
+			//This should rarely, if ever, happen.
+			//Handle error/log message.
+			return true, errors.New("channel still full after dropping oldest.")
+		}
+	}
 }
