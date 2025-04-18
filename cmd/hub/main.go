@@ -149,6 +149,8 @@ func handleConnection(c net.Conn, hb *hub.HubQueue, config *config.Config) {
 	}
 }
 
+// showStartup displays a formatted banner to the console
+// indicating the server has started and the address it's listening on.
 func showStartup(ip string, port uint16) {
 	w := 44
 	address := fmt.Sprintf("http://%s:%d", ip, port)

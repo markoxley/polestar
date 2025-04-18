@@ -47,6 +47,7 @@ import (
 	"github.com/markoxley/polestar/star"
 )
 
+// msgCount defines the total number of messages the sample publisher will send.
 const msgCount = 100000 // Number of messages to send in the test
 
 // main demonstrates a high-performance publisher that sends messages
@@ -67,12 +68,13 @@ const msgCount = 100000 // Number of messages to send in the test
 //   - Average time per message
 func main() {
 	cfg := &star.PublishConfig{
-		Address:      "127.0.0.1",
-		Port:         24353,
-		QueueSize:    1000000,
-		DialTimeout:  1000,
-		WriteTimeout: 2000,
-		MaxRetries:   3,
+		Address:            "127.0.0.1",
+		Port:               24353,
+		QueueSize:          1000000,
+		DialTimeout:        1000,
+		WriteTimeout:       2000,
+		MaxRetries:         3,
+		QueueFullBehaviour: "dropold",
 	}
 	if err := star.Init(cfg); err != nil {
 		log.Panic(err)

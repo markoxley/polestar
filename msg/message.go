@@ -357,6 +357,17 @@ func (m *Message) generateChecksum(data []byte) byte {
 	return checksum
 }
 
+// Split attempts to parse a byte stream that may contain multiple concatenated
+// Polestar messages. It iteratively deserializes messages based on the length
+// field embedded within each message's header. The process stops if it encounters
+// corrupted data, an incomplete message, or reaches the end of the input stream.
+//
+// Parameters:
+//   - data: The raw byte slice potentially containing multiple messages.
+//
+// Returns:
+//   - []*Message: A slice containing pointers to the successfully deserialized messages.
+//                 Returns an empty slice if no complete messages could be parsed.
 func Split(data []byte) []*Message {
 	res := make([]*Message, 0)
 	for len(data) > 0 {

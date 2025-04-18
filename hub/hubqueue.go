@@ -182,7 +182,7 @@ func (h *HubQueue) Stop() {
 //	    log.Println("Queue full:", err)
 //	}
 func (h *HubQueue) Store(message HubMessage) error {
-	_, err := h.messageQueue.Send(&message)
+	_, err := h.messageQueue.Send(&message, h.config.QueueFullBehaviour)
 	return err
 }
 

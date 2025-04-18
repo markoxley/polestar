@@ -11,5 +11,6 @@
     "ClientWorkerCount": 100,
     "ClientDialTimeout": 1000,
     "ClientWriteTimeout": 2000,
-    "ClientMaxRetries": 10
+    "ClientMaxRetries": 10,
+    "ClientQueueFullBehaviour": "dropold"
 }

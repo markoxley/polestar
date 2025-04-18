@@ -29,11 +29,11 @@
 //	    WriteTimeout: 2000, // milliseconds
 //	    MaxRetries: 3,
 //	}
-//	
+//
 //	if err := Init(cfg); err != nil {
 //	    log.Fatalf("Failed to initialize publisher: %v", err)
 //	}
-//	
+//
 //	// Publish messages asynchronously
 //	data := map[string]interface{}{
 //	    "sensor_id": "temp_1",
@@ -80,12 +80,13 @@ import (
 //	    MaxRetries: 1,        // Minimal retries for fresh data
 //	}
 type PublishConfig struct {
-	Address      string `json:"address"`      // Hub server address (default: "127.0.0.1")
-	Port         uint16 `json:"port"`         // Hub server port (default: 24353)
-	QueueSize    int    `json:"queueSize"`    // Size of message buffer (default: 1,000,000)
-	DialTimeout  int    `json:"dialTimeout"`  // TCP connection timeout (default: 1000ms)
-	WriteTimeout int    `json:"writeTimeout"` // Message write timeout (default: 2000ms)
-	MaxRetries   int    `json:"maxRetries"`   // Failed message retry limit (default: 3)
+	Address            string `json:"address"`              // Hub server address (default: "127.0.0.1")
+	Port               uint16 `json:"port"`                 // Hub server port (default: 24353)
+	QueueSize          int    `json:"queue_size"`           // Size of message buffer (default: 1,000,000)
+	DialTimeout        int    `json:"dial_timeout"`         // TCP connection timeout (default: 1000ms)
+	WriteTimeout       int    `json:"write_timeout"`        // Message write timeout (default: 2000ms)
+	MaxRetries         int    `json:"max_retries"`          // Failed message retry limit (default: 3)
+	QueueFullBehaviour string `json:"queue_full_behaviour"` // Queue full behaviour (default: "dropold")
 }
 
 var (
@@ -172,7 +173,7 @@ func Publish(topic string, data map[string]interface{}) error {
 	if err := m.SetData(data); err != nil {
 		return err
 	}
-	_, err := queue.Send(m)
+	_, err := queue.Send(m, pubConfig.QueueFullBehaviour)
 	if err != nil {
 		return err
 	}

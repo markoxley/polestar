@@ -3,7 +3,10 @@
 // for concurrent operations and automatic backpressure management.
 package hub
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 // HubMessage represents a message in the Polestar hub system.
 // It encapsulates both the message payload and routing information,
@@ -21,7 +24,7 @@ import "errors"
 //	    IP: "192.168.1.100",
 //	    Data: []byte("sensor.temperature:23.5"),
 //	}
-//	
+//
 //	// Send through hub channel
 //	if dropped, err := hubChannel.Send(msg); err != nil {
 //	    log.Printf("Failed to send: %v", err)
@@ -69,21 +72,30 @@ type HubChannel chan *HubMessage
 //	} else if dropped {
 //	    metrics.IncrementDropped()
 //	}
-func (h HubChannel) Send(m *HubMessage) (bool, error) {
-	select {
-	case h <- m:
-		return false, nil
-	default:
-		// Channel is full, drop the oldest and try again
-		<-h // Discard oldest
+func (h HubChannel) Send(m *HubMessage, behaviour string) (bool, error) {
+	for {
 		select {
 		case h <- m:
-			// Message sent after dropping oldest
-			return true, nil
+			return false, nil
 		default:
-			//This should rarely, if ever, happen.
-			//Handle error/log message.
-			return true, errors.New("channel still full after dropping oldest.")
+			switch behaviour {
+			case "drop":
+				return true, nil
+			case "dropold":
+				// Channel is full, drop the oldest and try again
+				<-h // Discard oldest
+				select {
+				case h <- m:
+					// Message sent after dropping oldest
+					return true, nil
+				default:
+					//This should rarely, if ever, happen.
+					//Handle error/log message.
+					return true, errors.New("channel still full after dropping oldest.")
+				}
+			default:
+				time.Sleep(time.Microsecond)
+			}
 		}
 	}
 }

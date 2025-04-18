@@ -47,29 +47,29 @@
 //	    mu sync.Mutex
 //	    data map[string]float64
 //	}
-//	
+//
 //	func (c *MyConsumer) Consume(msg *msg.Message) {
 //	    data, err := msg.Data()
 //	    if err != nil {
 //	        log.Printf("Error: %v", err)
 //	        return
 //	    }
-//	    
+//
 //	    c.mu.Lock()
 //	    defer c.mu.Unlock()
 //	    // Process message...
 //	}
-//	
+//
 //	cfg := &ConsumerConfig{
 //	    Name: "temperature_monitor",
 //	    Topics: []string{"sensors.temperature.*"},
 //	    QueueSize: 1000,
 //	}
-//	
+//
 //	consumer := &MyConsumer{
 //	    data: make(map[string]float64),
 //	}
-//	
+//
 //	if err := Listen(consumer, cfg); err != nil {
 //	    log.Fatalf("Failed to start consumer: %v", err)
 //	}
@@ -80,6 +80,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -101,6 +102,8 @@ import (
 //   - DialTimeout: 1000ms
 //   - WriteTimeout: 2000ms
 //   - MaxRetries: 3 attempts
+//   - HubAddress: "127.0.0.1"
+//   - HubPort: 24353
 //
 // Example configuration for high-throughput:
 //
@@ -116,16 +119,17 @@ import (
 //	    },
 //	}
 type ConsumerConfig struct {
-	Name         string   `json:"name"`         // Unique identifier for this consumer
-	HubAddress   string   `json:"hubAddress"`   // Hub server address (default: "127.0.0.1")
-	HubPort      uint16   `json:"hubPort"`      // Hub server port (default: 24353)
-	Address      string   `json:"address"`      // Local binding address
-	Port         uint16   `json:"port"`         // Local binding port
-	QueueSize    int      `json:"queueSize"`    // Message buffer size (default: 1000)
-	DialTimeout  int      `json:"dialTimeout"`  // TCP connection timeout (default: 1000ms)
-	WriteTimeout int      `json:"writeTimeout"` // Message write timeout (default: 2000ms)
-	MaxRetries   int      `json:"maxRetries"`   // Failed operation retry limit (default: 3)
-	Topics       []string `json:"topics"`       // Topics to subscribe to
+	Name               string   `json:"name"`                 // Unique identifier for this consumer
+	HubAddress         string   `json:"hub_address"`          // Hub server address (default: "127.0.0.1")
+	HubPort            uint16   `json:"hub_port"`             // Hub server port (default: 24353)
+	Address            string   `json:"address"`              // Local binding address
+	Port               uint16   `json:"port"`                 // Local binding port
+	QueueSize          int      `json:"queue_size"`           // Message buffer size (default: 1000)
+	DialTimeout        int      `json:"dial_timeout"`         // TCP connection timeout (default: 1000ms)
+	WriteTimeout       int      `json:"write_timeout"`        // Message write timeout (default: 2000ms)
+	MaxRetries         int      `json:"max_retries"`          // Failed operation retry limit (default: 3)
+	Topics             []string `json:"topics"`               // Topics to subscribe to
+	QueueFullBehaviour string   `json:"queue_full_behaviour"` // Queue full behaviour (default: "dropold")
 }
 
 // Consumer defines the interface that must be implemented by message consumers.
@@ -209,6 +213,7 @@ func Listen(c Consumer, config *ConsumerConfig) error {
 	if config.Port <= 0 {
 		return errors.New("port must be a valid TCP port number")
 	}
+	config.QueueFullBehaviour = strings.ToLower(config.QueueFullBehaviour)
 	if config.Name == "" {
 		return errors.New("name must be a non-empty string")
 	}
@@ -231,7 +236,7 @@ func Listen(c Consumer, config *ConsumerConfig) error {
 				log.Printf("Error accepting connection: %v", err)
 				continue
 			}
-			go handler(c, conn, q)
+			go handler(c, conn, q, config)
 		}
 	}()
 	return nil
@@ -263,7 +268,7 @@ func startQueue(c Consumer, config *ConsumerConfig) chan *msg.Message {
 // It automatically closes the connection when done. Uses a 1KB buffer
 // for reading messages, which should be sufficient for most use cases.
 // Any errors during message processing are logged but do not stop the handler.
-func handler(c Consumer, conn net.Conn, queueIn PoleChannel) {
+func handler(c Consumer, conn net.Conn, queueIn PoleChannel, cfg *ConsumerConfig) {
 	defer conn.Close()
 	buf := make([]byte, 1024)
 	data := make([]byte, 0)
@@ -279,7 +284,7 @@ func handler(c Consumer, conn net.Conn, queueIn PoleChannel) {
 	}
 	msgs := msg.Split(data)
 	for _, m := range msgs {
-		_, err := queueIn.Send(m)
+		_, err := queueIn.Send(m, cfg.QueueFullBehaviour)
 		if err != nil {
 			log.Printf("Failed to send message: %v", err)
 			continue
@@ -380,14 +385,17 @@ func ping(c Consumer, config *ConsumerConfig) error {
 		}
 	}()
 
-	for {
+	// Use for range over the ticker channel for cleaner code
+	for range t.C {
 		select {
-		case <-t.C:
-			select {
-			case pingCh <- struct{}{}: // Non-blocking ping request
-			default:
-				log.Printf("Warning: ping channel full for %s", config.Name)
-			}
+		case pingCh <- struct{}{}: // Non-blocking ping request
+		default:
+			// Log if the ping channel is already full (should be rare)
+			log.Printf("Warning: ping channel full for %s", config.Name)
 		}
 	}
+	// Add a return statement to satisfy the compiler, although this
+	// part of the code is not expected to be reached in normal operation
+	// as the loop above runs indefinitely.
+	return nil
 }

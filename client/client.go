@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 // Package client provides thread-safe client management for the Polestar system.
-// It implements a high-performance registry for tracking connected clients with 
+// It implements a high-performance registry for tracking connected clients with
 // case-insensitive lookups and concurrent access support.
 //
 // Performance characteristics:
@@ -191,7 +191,7 @@ func (c *Client) send(m []byte, mt *sync.Mutex) error {
 // Parameters:
 //   - m: The message bytes to queue for delivery
 func (c *Client) Send(m []byte) {
-	c.ch.Send(m)
+	c.ch.Send(m, c.config.QueueFullBehaviour)
 }
 
 // Stop gracefully shuts down the client's message processing.

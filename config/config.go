@@ -28,6 +28,7 @@ package config
 import (
 	"encoding/json"
 	"os"
+	"strings"
 )
 
 // Config defines the operational parameters for the Polestar hub.
@@ -36,19 +37,20 @@ import (
 // - Worker Count: 100 concurrent workers for parallel processing
 // - Timeouts: Optimized for ~0.06ms average latency
 type Config struct {
-	IP                 string `json:"ip"`                 // IP address to bind the server to (e.g., "0.0.0.0" for all interfaces)
-	Port               uint16 `json:"port"`               // Port number to listen on (e.g., 24353)
-	QueueSize          int    `json:"queueSize"`          // Size of message buffer (default: 1,000,000)
-	WorkerCount        int    `json:"workerCount"`        // Number of concurrent workers (default: 100)
-	DialTimeout        int    `json:"dialTimeout"`        // TCP connection timeout in ms (default: 1000)
-	WriteTimeout       int    `json:"writeTimeout"`       // Message write timeout in ms (default: 2000)
-	ReadTimeout        int    `json:"readTimeout"`        // Message read timeout in ms (default: 30000)
-	MaxRetries         int    `json:"maxRetries"`         // Maximum message delivery attempts (default: 3)
-	ClientQueueSize    int    `json:"clientQueueSize"`    // Size of each client's message queue (default: 1000)
-	ClientWorkerCount  int    `json:"clientWorkerCount"`  // Workers per client for message processing (default: 100)
-	ClientDialTimeout  int    `json:"clientDialTimeout"`  // Client TCP connection timeout in ms (default: 1000)
-	ClientWriteTimeout int    `json:"clientWriteTimeout"` // Client message write timeout in ms (default: 2000)
-	ClientMaxRetries   int    `json:"clientMaxRetries"`   // Maximum client delivery attempts (default: 3)
+	IP                 string `json:"ip"`                   // IP address to bind the server to (e.g., "0.0.0.0" for all interfaces)
+	Port               uint16 `json:"port"`                 // Port number to listen on (e.g., 24353)
+	QueueSize          int    `json:"queue_size"`           // Size of message buffer (default: 1,000,000)
+	QueueFullBehaviour string `json:"queue_full_behaviour"` // Behaviour when queue is full (default: "drop")
+	WorkerCount        int    `json:"worker_count"`         // Number of concurrent workers (default: 100)
+	DialTimeout        int    `json:"dial_timeout"`         // TCP connection timeout in ms (default: 1000)
+	WriteTimeout       int    `json:"write_timeout"`        // Message write timeout in ms (default: 2000)
+	ReadTimeout        int    `json:"read_timeout"`         // Message read timeout in ms (default: 30000)
+	MaxRetries         int    `json:"max_retries"`          // Maximum message delivery attempts (default: 3)
+	ClientQueueSize    int    `json:"client_queue_size"`    // Size of each client's message queue (default: 1000)
+	ClientWorkerCount  int    `json:"client_worker_count"`  // Workers per client for message processing (default: 100)
+	ClientDialTimeout  int    `json:"client_dial_timeout"`  // Client TCP connection timeout in ms (default: 1000)
+	ClientWriteTimeout int    `json:"client_write_timeout"` // Client message write timeout in ms (default: 2000)
+	ClientMaxRetries   int    `json:"client_max_retries"`   // Maximum client delivery attempts (default: 3)
 }
 
 // Load reads and parses the configuration file, applying performance-optimized
@@ -80,6 +82,10 @@ func Load() (*Config, error) {
 	if config.WorkerCount <= 0 {
 		config.WorkerCount = 100
 	}
+	if config.QueueFullBehaviour == "" {
+		config.QueueFullBehaviour = "wait"
+	}
+	config.QueueFullBehaviour = strings.ToLower(config.QueueFullBehaviour)
 	if config.DialTimeout <= 0 {
 		config.DialTimeout = 1000
 	}

@@ -236,9 +236,10 @@ func (c *Clients) getExpired(d time.Duration) []string {
 	return names
 }
 
-// Cleanup removes all clients that haven't sent a ping
-// in the last 2 minutes. This prevents resource leaks from
-// clients that have disconnected without proper cleanup.
+// beginGarbageCollector starts a background goroutine that periodically removes
+// clients considered inactive (those that haven't sent a ping within the
+// garbageEpoch duration). This prevents resource leaks from clients that have
+// disconnected without proper cleanup. The cleanup runs every garbageTimer interval.
 func (c *Clients) beginGarbageCollector() {
 	go func() {
 		ticker := time.NewTicker(garbageTimer)

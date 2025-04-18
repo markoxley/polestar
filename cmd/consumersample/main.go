@@ -93,13 +93,6 @@ func (c *consumerSample) Consume(m *msg.Message) {
 	}
 }
 
-// Run processes messages from the channel until receiving a quit message.
-// It demonstrates proper message handling including:
-//   - Data extraction and error handling
-//   - Type assertion safety
-//   - Graceful shutdown on quit message
-//   - Continuous message processing
-
 // main initializes and runs the sample consumer. It:
 //  1. Creates a new consumer with a buffered message channel
 //  2. Registers with the hub on the "test" topic
@@ -116,16 +109,17 @@ func (c *consumerSample) Consume(m *msg.Message) {
 func main() {
 	c := &consumerSample{}
 	cfg := &star.ConsumerConfig{
-		Name:         "sample",
-		Address:      "127.0.0.1",
-		Port:         8080,
-		HubAddress:   "127.0.0.1",
-		HubPort:      24353,
-		QueueSize:    1000000,
-		DialTimeout:  1000,
-		WriteTimeout: 2000,
-		MaxRetries:   3,
-		Topics:       []string{"test"},
+		Name:               "sample",
+		Address:            "127.0.0.1",
+		Port:               8080,
+		HubAddress:         "127.0.0.1",
+		HubPort:            24353,
+		QueueSize:          1000000,
+		DialTimeout:        1000,
+		WriteTimeout:       2000,
+		MaxRetries:         3,
+		Topics:             []string{"test"},
+		QueueFullBehaviour: "dropold",
 	}
 	if err := star.Listen(c, cfg); err != nil {
 		log.Panic(err)
