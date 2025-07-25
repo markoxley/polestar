@@ -136,6 +136,7 @@ func handleConnection(c net.Conn, hb *hub.HubQueue, config *config.Config) {
 			ip = ip[:strings.Index(ip, ":")]
 			// Message complete, process it
 			// Create a HubMessage and store it in the hub.
+			fmt.Printf("Message from %s: %s\n", ip, string(buffer))
 			err = hb.Store(hub.HubMessage{
 				IP:   ip,
 				Data: buffer,
